@@ -37,11 +37,11 @@ loop({PrevHal, PrevHeading}) ->
 	    loop({PrevHal, PrevHeading}); 
 	{hal,  Bytes} ->
 	    CurrHal = list_to_integer(Bytes),
-	%    CurrHal = cunit:getAccelSpeed(),
+	    %%    CurrHal = cunit:getAccelSpeed(),
 	    CurrHeading = cunit:getHeading(),
-            say("Hal: ~p", [CurrHal]),
-	   % say("Positions: ~p", [calculatePos(PrevHal, CurrHal, PrevHeading, CurrHeading)]),     
-vehicle_data:update_position(calculatePos(PrevHal, CurrHal, PrevHeading, CurrHeading)),
+            %% say("Hal: ~p", [CurrHal]),
+	    %% say("Positions: ~p", [calculatePos(PrevHal, CurrHal, PrevHeading, CurrHeading)]),     
+	    vehicle_data:update_position(calculatePos(PrevHal, CurrHal, PrevHeading, CurrHeading)),
 	    loop({CurrHal,CurrHeading})
     end.
 	    

@@ -11,11 +11,12 @@
 
 -define(SERVER, ?MODULE). 
 
--record(state, {car_position, sensor_data, estimated_car_position , heading}).
+-record(state, {car_position, sensor_data, estimated_car_position , heading , estimated_heading}).
 
 init([]) ->
     say("init", []),
-    {ok, #state{car_position = {0,0}, sensor_data = {stuff, 0}, estimated_car_position = {0,0}, heading=0}}.
+    {ok, #state{car_position = {0,0}, sensor_data = {stuff, 0}, heading = 0, 
+		estimated_car_position = {0,0}, estimated_heading=0}}.
 
 %%--------------------------------------------------------------------
 % API Function Definitions 
@@ -33,6 +34,9 @@ car_position() ->
 
 car_heading() ->
     gen_server:call(?SERVER, car_heading).
+
+estimated() ->
+    gen_server:call(?SERVER, get_estimated).
 
 % @doc
 % Updates current car position. Argument position is the X and Y the position
@@ -61,6 +65,10 @@ handle_call(car_heading, _From, State) ->
     Reply = State#state.heading,
     {reply, Reply, State};
 
+handle_call(get_estimated, _From, State) ->
+    Reply = {State#state.estimated_heading, State#state.estimated_car_position},
+    {reply, Reply, State};
+
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
@@ -70,15 +78,16 @@ handle_call(_Request, _From, State) ->
 handle_cast({update_position, {PosX, PosY, DeltaHeading}}, State) ->
     {OldPosX, OldPosY} = State#state.estimated_car_position,
     Oldheading = State#state.heading,
-    io:format("New Position: ~p~n", [{OldPosX + PosX, OldPosY + PosY}]),
-    {noreply, State#state{estimated_car_position = {OldPosX + PosX, OldPosY + PosY}, heading = (Oldheading + DeltaHeading)}};
+    %%io:format("New Position: ~p~n", [{OldPosX + PosX, OldPosY + PosY}]),
+    {noreply, State#state{estimated_car_position = {OldPosX + PosX, OldPosY + PosY}, 
+			  estimated_heading = (Oldheading + DeltaHeading)}};
 
 handle_cast({update_sensor, Data}, State) ->
     {noreply, State#state{sensor_data = Data }};
 
 handle_cast({correct_position, Position , Heading}, State) ->
-    {noreply, State#state{car_position = Position, estimated_car_position = Position , heading = Heading}};
-
+    {noreply, State#state{car_position = Position , heading = Heading}};
+%%, estimated_car_position = Position
 handle_cast(_Msg, State) ->
     {noreply, State}.
 

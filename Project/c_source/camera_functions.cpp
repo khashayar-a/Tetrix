@@ -80,6 +80,7 @@ bool get_image(char*& img)
   if (is_GetImageMem(hCam, &pMemVoid) == IS_SUCCESS){
 
     img = (char*) pMemVoid;
+    pMemVoid = NULL;
     return true;
   }
   else

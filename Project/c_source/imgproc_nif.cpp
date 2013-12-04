@@ -22,6 +22,8 @@ ErlNifResourceType* frame_res = NULL;
 int counter = 0; // counter used for naming saved .jpg files
 
 
+// Assigning  IplImage data to the frame struct
+//frame_t* frame = (frame_t*)enif_alloc_resource(frame_res, sizeof(frame_t));
 
 //------------------------------------------------------------------------------
 // C++ functions
@@ -78,7 +80,11 @@ static ERL_NIF_TERM get_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   
   // Assigning  IplImage data to the frame struct
   frame_t* frame = (frame_t*)enif_alloc_resource(frame_res, sizeof(frame_t));
-  frame->_frame = src ;
+  frame->_frame = src;
+
+  //Free memory
+  //cvReleaseImage(&src);
+  //imgPointer = NULL;
 
   ERL_NIF_TERM term = enif_make_resource_binary(env, frame, frame ,6);
 
