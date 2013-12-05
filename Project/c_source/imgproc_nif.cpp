@@ -71,7 +71,7 @@ static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 static ERL_NIF_TERM get_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 
-  // Retrieving a pointer of the image, and assigning it to an IplImage
+  // Retrieving a pointern of the image, and assigning it to an IplImage
   char* imgPointer;
   bool img_retrieved = get_image(imgPointer);
   IplImage* src = cvCreateImage(cvSize(752,480), IPL_DEPTH_8U, 1);

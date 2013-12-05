@@ -1,0 +1,8 @@
+#ifndef HAL_H
+#define HAL_H
+
+
+int init();
+int get_char();
+int deinit();
+#endif

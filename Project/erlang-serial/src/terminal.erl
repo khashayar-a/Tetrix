@@ -51,7 +51,7 @@ init(State) ->
 serial_listner(Pid, State) ->
     receive
 	{data, Bytes} ->
-	    io:format("BYTE RECEIVED : ~p ~n", [Bytes]),
+%%	    io:format("BYTE RECEIVED : ~p ~n", [Bytes]),
 	    Buff = binary_to_list(Bytes),
 	    NewState = parse(Buff,State,Pid),
 	    serial_listner(Pid,NewState)

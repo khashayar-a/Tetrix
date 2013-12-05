@@ -70,10 +70,10 @@ else
 
 	cd ".."
 	if rebar compile; then
-	    cd "erlang-serial"
-	    make clean;
-	    make;
-	    cp -r priv ../
+#	    cd "erlang-serial"
+#	    make clean;
+#	    make;
+#	    cp -r priv ../
 	    cd "ebin"
 	    cp * ../../ebin/
 	    echo -e "\033[1mErlang Compilation Complete ! \033[0m";

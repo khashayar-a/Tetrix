@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, car_position/0, car_heading/0,  update_position/1, update_sensor/1]).
+-export([start_link/0, car_position/0, car_heading/0,  update_position/1, update_sensor/1, estimated/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,

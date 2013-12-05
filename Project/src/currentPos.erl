@@ -25,25 +25,40 @@ start() ->
 init(State) ->
     %% initialize 
     say("init", []),
-    loop(State).
+    loop(State, []).
 
 %%--------------------------------------------------------------------
 %% Internal functions Definitions 
 %%--------------------------------------------------------------------
 
-loop({PrevHal, PrevHeading}) ->
-    receive
-	{hal, []} ->
-	    loop({PrevHal, PrevHeading}); 
-	{hal,  Bytes} ->
-	    CurrHal = list_to_integer(Bytes),
-	    %%    CurrHal = cunit:getAccelSpeed(),
+loop({PrevHal, PrevHeading} , Buff) ->
+    timer:sleep(30),
+    case hal_nif:get_byte() of
+	-1 ->
+	    loop({PrevHal, PrevHeading} , Buff);
+	$% ->
+	    loop({PrevHal, PrevHeading} , Buff);
+	$| ->
+	    CurrHal = list_to_integer(Buff),
+%%	    io:format("byte is : ~p ~n " , [CurrHal]),
 	    CurrHeading = cunit:getHeading(),
-            %% say("Hal: ~p", [CurrHal]),
-	    %% say("Positions: ~p", [calculatePos(PrevHal, CurrHal, PrevHeading, CurrHeading)]),     
 	    vehicle_data:update_position(calculatePos(PrevHal, CurrHal, PrevHeading, CurrHeading)),
-	    loop({CurrHal,CurrHeading})
+	    loop({CurrHal,CurrHeading}, []);
+	H ->
+%%	    io:format("byte read : ~p ~n " , [H]),
+	    loop({PrevHal, PrevHeading} , Buff ++ [H])
     end.
+
+    %% receive
+    %% 	{hal, []} ->
+    %% 	    loop({PrevHal, PrevHeading}); 
+    %% 	{hal,  Bytes} ->
+
+    %%         %% say("Hal: ~p", [CurrHal]),
+    %% 	    %% say("Positions: ~p", [calculatePos(PrevHal, CurrHal, PrevHeading, CurrHeading)]),     
+    %% 	    vehicle_data:update_position(calculatePos(PrevHal, CurrHal, PrevHeading, CurrHeading)),
+    %% 	    loop({CurrHal,CurrHeading})
+    %% end.
 	    
    
 
