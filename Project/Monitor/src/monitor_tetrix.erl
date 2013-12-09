@@ -37,23 +37,18 @@ loop(State)->
 
   case nodes() of
       [] ->
-        case net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) ) of
+        %case net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) ) of
+        case net_kernel:connect_node('node1@192.168.3.160') of
               false ->
                     timer:sleep(1000),
                     io:format("false: no connection\n",[]),
-                    timer:sleep(1000),
+                    timer:sleep(500),
                     case startup_tetrix() of
                      ok ->
-                       net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) )
+                       %net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) )
+                       net_kernel:connect_node('node1@192.168.3.160')
                     end,
  
-     %               os:cmd(".././init_tetrix"), 
-     %               net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) ),
-%                    os:cmd("cd ../;./run.sh &"), 
-%                    timer:sleep(3000),
-%                    net_kernel:connect_node(list_to_atom("node1@" ++ Host) ),
-%                    os:cmd("erl -pa /ebin/ -sname node1 -setcookie nodes -noshell &"),
-                    %os:cmd("erl -pa /ebin/ -sname node1 -setcookie nodes -noshell &"),
                     loop(State);
               true ->
                   io:format("connection established\n",[])
@@ -61,24 +56,23 @@ loop(State)->
         case rpc:multicall(nodes(), erlang, is_alive, []) of
             {[],[]} ->
                  io:format("no nodes are alive\n",[]),
-                 %os:cmd(".././init_tetrix"), 
                  case startup_tetrix() of
                     ok ->
-                      net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) )
+                      %net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) )
+                      net_kernel:connect_node('node1@192.168.3.160')
                  end,
  
-%                os:cmd("erl -pa /ebin/ -sname node1 -setcookie nodes -noshell &"),
                 timer:sleep(1000),
                 loop(State);
             {[true],_} ->
                 io:format("Monitoring tetrix app",[])
-%                loop(Host)
         end;
       _ ->
-        {shell, list_to_atom("node1@" ++ State#state.host) } ! {check_availability, self()}
+%        {shell, list_to_atom("node1@" ++ State#state.host) } ! {check_availability, self()}
+        {shell,  'node1@192.168.3.160'} ! {check_availability, self()}
   end,
 
-  {shell,list_to_atom("node1@" ++ State#state.host) } ! {check_availability, self()},
+  {shell,'node1@192.168.3.160' } ! {check_availability, self()},
 
   receive
   {ok, available} ->
