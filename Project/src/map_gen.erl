@@ -69,6 +69,12 @@ road_side() ->
 save_tab() ->
     ets:tab2list(dash_lines).
 
+write_tab() ->
+    {ok, Log}  = file:open("savedtab" , [read, append]),
+    T = separate(ets:tab2list(dash_lines), []),
+    io:fwrite(Log, "~p~n" , [T]),
+    file:close().
+
 %%--------------------------------------------------------------------
 % gen_server Function Definitions
 %%--------------------------------------------------------------------
@@ -96,9 +102,6 @@ handle_call(_Request, _From, State) ->
 
 handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos,Car_Heading}}}, State) ->
 
-    
-    
-
     Temp_Dashes = translate_dashes(State#state.matrix_id, Dashes, {Car_Pos,Car_Heading}, []),
     NewDashes = connect_dashes(Temp_Dashes, undef, []), 
     
@@ -111,10 +114,10 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos,Car_Heading}}}, State) ->
  	    Correction = calculate_correct_pos(NewDashes),  
  	    case Correction of
  		not_found ->
-		    io:format("Correction NotFound ~n", []),
+		    %% io:format("Correction NotFound ~n", []),
  		    {noreply, State#state{mode = recording}};
  		{Center_Point = {Cx,Cy}, {Offset={Ox,Oy}, Delta_Angle}} ->
-%% 		    io:format("Correction found ~p~n", [Correction]),
+		    %% io:format("Correction found ~p~n", [Correction]),
 		    Dashes_Needed = remove_dashes_before({Cx-Ox, Cy-Oy}, NewDashes),
   		    Moved_Dashes = move_dashes(Dashes_Needed, Correction, []),
   		    Orig_Dash = ets_lookup(Center_Point),
@@ -132,6 +135,7 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos,Car_Heading}}}, State) ->
 		    end,
 		    Connected_Dashes = connect_dashes(Moved_Dashes, 
   						      Orig_Dash#dash_line.dash_before, []), 	    
+%%		    Second_Dash = hd(tl(Connected_Dashes)),
   		    clean_ets_dashes(Center_Point),
  		    insert_dashes(Connected_Dashes),
  		    New_CarPos = move_point(Car_Pos, Correction),
@@ -219,7 +223,7 @@ translate_dash(ID, {CenterPoint, {{R1,R2,R3,R4} , {Bottom, Middle, Top}}}, {Car_
     Center = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID, CenterPoint)),
     BottomLeft = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R1)),
     TopLeft = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R2)),
-    TopRight = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R3)), 
+    TopRight = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R3)),
     BottomRight = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R4)),
     #dash_line{center_point = Center, 
 	       box = {BottomLeft, TopLeft, TopRight, BottomRight},
@@ -238,7 +242,7 @@ translate_dashes(_,[],_,Buff) ->
 translate_point(ID, Point) ->
     case ets:lookup(ID , Point) of
 	[] ->
-	    [];
+	    {200000000, 200000000};
 	[{_,NewPoint}] ->
 	    NewPoint
     end.
@@ -303,11 +307,12 @@ calculate_correct_pos([Dash| T]) ->
 	    Angle1 = rect_angle(Dash#dash_line.box),
 	    Angle2 = rect_angle(Corresponding_Dash#dash_line.box),
 	    Delta_Angle = Angle2 - Angle1,
-	    case {Dash#dash_line.area < 5600 , Dash#dash_line.area > 3000} of
-		
+	    Length = get_length(Dash#dash_line.points),
+	    case {Length > 150 , Length < 250} of
 		{true,true} ->
 		    {Corresponding_Dash#dash_line.center_point, {Offset, Delta_Angle}};
 		_ ->
+%%		    io:format("Bad Lenght ~p~n", [Length]),
 		    calculate_correct_pos(T)
 	    end
     end;
@@ -361,15 +366,7 @@ move_point({X,Y},{{Cx,Cy},{{Dx,Dy}, Rotation}}) ->
     NewX = (Distance * math:cos(Angle+Rotation)) + Cx + Dx,
     
     NewY = (Distance * math:sin(Angle+Rotation)) + Cy + Dy,
-    
 
-    
-    %% OffX = X + Dx,
-    %% OffY = Y + Dy,
-    %% Distance = getDistance({OffX,OffY} , {Cx,Cy}),
-    
-    %% NewX = Cx + (Distance * math:cos(Angle)) ,
-    %% NewY = Cy + (Distance * math:sin(Angle)) ,
     {round(NewX), round(NewY)}.
 
 
@@ -411,13 +408,17 @@ remove_dashes_before(_,[]) ->
     well_fuck.
 
 clean_ets_dashes(Point) ->
-    Orig_Dash = ets_lookup(Point),
-    ets:delete(dash_lines, Point),
-    case Orig_Dash#dash_line.dash_after of
-	undef ->
+    case ets_lookup(Point) of 
+	ok -> 
 	    ok;
-	Next ->
-	    clean_ets_dashes(Next)
+	Orig_Dash -> 
+	    ets:delete(dash_lines, Point),
+	    case Orig_Dash#dash_line.dash_after of
+		undef ->
+		    ok;
+		Next ->
+		    clean_ets_dashes(Next)
+	    end
     end.
 
 
@@ -441,3 +442,11 @@ match_spec(CX,CY,R) ->
      {{'$1','$2'}}}}]}].
 
 		  
+get_length([P1,P2,P3]) ->
+    steering:getDistance(P1,P3).
+
+
+separate([H | T] , Buff) ->
+    separate(T, Buff ++ H#dash_line.points);
+separate([], Buff) ->
+    Buff.

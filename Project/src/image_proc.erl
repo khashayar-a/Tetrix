@@ -49,6 +49,7 @@ process(State) ->
      		not_found ->
      		    not_found;
      		_ ->
+		    %%ok
      		    map_gen:add_frame(Processed, ?InputLaneD , {Car_Pos,Car_Heading})
      	    end;
      	_ ->

@@ -142,5 +142,8 @@ local_to_global({CarX, CarY}, CarAng, {CoordXRaw, CoordYRaw}) ->
     end,
     X = CarX + (getDistance({0,0},{CoordX,CoordY})*(math:cos(CarAng+(getAng({0,0},{CoordX,CoordY}))))),
     Y = CarY + (getDistance({0,0},{CoordX,CoordY})*(math:sin(CarAng+(getAng({0,0},{CoordX,CoordY}))))),
-    {round(X),round(Y)}.
+    {round(X),round(Y)};
+local_to_global(_,_,_) ->
+    well_fuck.
+
    

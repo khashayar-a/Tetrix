@@ -10,23 +10,33 @@
 	 terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE). 
+-define(RPI, 'node2@192.168.3.150').
 
 -record(state, {car_position, sensor_data, estimated_car_position , heading , estimated_heading}).
 
 init([]) ->
     say("init", []),
-    {ok, #state{car_position = {0,0}, sensor_data = {stuff, 0}, heading = 0, 
-		estimated_car_position = {0,0}, estimated_heading=0}}.
+    net_kernel:connect_node(?RPI),
+    case gen_server:call({hardware, ?RPI} , initial_position) of
+	undefined ->
+	    Position = {0,0};
+	{_,X,Y} ->
+	    Position = {X,Y}
+    end,
+    Heading = gen_server:call({hardware, ?RPI} , initial_heading),
+
+    {ok, #state{car_position = Position, sensor_data = {stuff, 0}, heading = Heading, 
+		estimated_car_position = Position , estimated_heading = Heading}}.
 
 %%--------------------------------------------------------------------
-% API Function Definitions 
+%% API Function Definitions 
 %%--------------------------------------------------------------------
 
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-% @doc
-% Retrieves current car position 
+%% @doc
+%% Retrieves current car position 
 car_position() ->
     gen_server:call(
     ?SERVER,
@@ -38,27 +48,27 @@ car_heading() ->
 estimated() ->
     gen_server:call(?SERVER, get_estimated).
 
-% @doc
-% Updates current car position. Argument position is the X and Y the position
-% in tuple form, i.e. {1,2}
+%% @doc
+%% Updates current car position. Argument position is the X and Y the position
+%% in tuple form, i.e. {1,2}
 update_position(Position) ->
     gen_server:cast(
     ?SERVER,
     {update_position, Position}).
 
-% @doc
-% Updates sensor data
+%% @doc
+%% Updates sensor data
 update_sensor(Data) ->
     gen_server:cast(
     ?SERVER,
     {update_sensor, Data}).
 
 %%--------------------------------------------------------------------
-% gen_server Function Definitions
+%% gen_server Function Definitions
 %%--------------------------------------------------------------------
 
 handle_call(car_position, _From, State) ->
-    Reply = State#state.car_position,
+    Reply = State#state.estimated_car_position,
     {reply, Reply, State};
 
 handle_call(car_heading, _From, State) ->
@@ -78,7 +88,7 @@ handle_call(_Request, _From, State) ->
 handle_cast({update_position, {PosX, PosY, DeltaHeading}}, State) ->
     {OldPosX, OldPosY} = State#state.estimated_car_position,
     Oldheading = State#state.heading,
-    %%io:format("New Position: ~p~n", [{OldPosX + PosX, OldPosY + PosY}]),
+    %% io:format("New Position: ~p~n", [{OldPosX + PosX, OldPosY + PosY}]),
     {noreply, State#state{estimated_car_position = {OldPosX + PosX, OldPosY + PosY}, 
 			  estimated_heading = (Oldheading + DeltaHeading)}};
 
@@ -86,7 +96,8 @@ handle_cast({update_sensor, Data}, State) ->
     {noreply, State#state{sensor_data = Data }};
 
 handle_cast({correct_position, Position , Heading}, State) ->
-    {noreply, State#state{car_position = Position , heading = Heading}};
+    {noreply, State#state{car_position = Position , heading = Heading, 
+			  estimated_car_position = Position}};
 %%, estimated_car_position = Position
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -94,7 +105,7 @@ handle_cast(_Msg, State) ->
 %%--------------------------------------------------------------------
 
 handle_info(_Info, State) ->
-    % Unexpected messages, i.e. out-of-band
+    %% Unexpected messages, i.e. out-of-band
     error_logger:info_msg("Unexpected message:~p~n", [_Info]),
     {noreply, State}.
 
@@ -114,6 +125,6 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 %%--------------------------------------------------------------------
 
-% Console print outs for server actions (init, terminate, etc) 
+%% Console print outs for server actions (init, terminate, etc) 
 say(Format, Data) ->
     io:format("~p:~p: ~s~n", [?MODULE, self(), io_lib:format(Format, Data)]).
