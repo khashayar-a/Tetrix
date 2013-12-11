@@ -17,7 +17,7 @@
 -define(XSCALE, 300/10.0).
 -define(YSCALE, 420/20.0).
 
--record(state, {node_ahead, road_side, frame_data, matrix_id, camera_matrix, mode}).
+-record(state, {node_ahead, road_side, frame_data, matrix_id, camera_matrix, mode, last_dashes}).
 -record(dash_line, {center_point, box, points, area, dash_before, dash_after}).
 
 -include("../include/offsetCalculation.hrl").
@@ -62,18 +62,18 @@ add_frame(Points, Lane_ID, Car_Pos) ->
 % @doc
 % Retrieves the side of the road that the vehicle is on
 road_side() ->
-    gen_server:call(
-      ?SERVER,
-      road_side).
-
+    gen_server:call(?SERVER, road_side).
 save_tab() ->
     ets:tab2list(dash_lines).
 
-write_tab() ->
-    {ok, Log}  = file:open("savedtab" , [read, append]),
-    T = separate(ets:tab2list(dash_lines), []),
+write_tab(N) ->
+    {ok, Log}  = file:open("savedtab" , [read, write]),
+    T = separate(ets:tab2list(dash_lines), [], N),
     io:fwrite(Log, "~p~n" , [T]),
-    file:close().
+    file:close(Log).
+
+last_dashes() ->
+        gen_server:call(?SERVER, last_dashes).
 
 %%--------------------------------------------------------------------
 % gen_server Function Definitions
@@ -87,6 +87,10 @@ handle_call({node_ahead,{CarX,CarY}}, _From, State) ->
 
 handle_call(road_side, _From, State) ->
     Reply = State#state.road_side,
+    {reply, Reply, State};
+
+handle_call(last_dashes, _From, State) ->
+    Reply = State#state.last_dashes,
     {reply, Reply, State};
 
 handle_call(time_to_terminate, _From, State) ->
@@ -109,11 +113,12 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos,Car_Heading}}}, State) ->
 	start ->
 	    io:format("START MODE~n" , []),
 	    insert_dashes(NewDashes),
-	    {noreply, State#state{mode = recording}};
+	    {noreply, State#state{mode = recording, last_dashes = get_last_dashes()}};
  	recording ->
- 	    Correction = calculate_correct_pos(NewDashes),  
+ 	    Correction = calculate_correct_pos(NewDashes , State#state.last_dashes),  
  	    case Correction of
  		not_found ->
+		    
 		    %% io:format("Correction NotFound ~n", []),
  		    {noreply, State#state{mode = recording}};
  		{Center_Point = {Cx,Cy}, {Offset={Ox,Oy}, Delta_Angle}} ->
@@ -141,7 +146,7 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos,Car_Heading}}}, State) ->
  		    New_CarPos = move_point(Car_Pos, Correction),
 		    New_CarHeading = Car_Heading  + Delta_Angle,
  		    gen_server:cast(vehicle_data, {correct_position, New_CarPos , New_CarHeading}),
-		    {noreply, State#state{mode = recording}}
+		    {noreply, State#state{mode = recording , last_dashes = get_last_dashes()}}
  	    end
     end;
 
@@ -281,27 +286,36 @@ center_point({X1,Y1}, {X2,Y2}) ->
 offset_point({X1,Y1}, {X2,Y2}) ->
     {X2-X1, Y2-Y1}.
 
-closest_in_radius({CX,CY}, Radius) ->
-    MatchSpec = match_spec(CX,CY,Radius),
-    T = ets:select(dash_lines, MatchSpec),
-    case T of
-	[] ->
-	    not_found;
+
+closest_in_radius(_,_,[]) ->
+    not_found;
+closest_in_radius({CX,CY}, Radius , [H | T]) ->
+    case getDistance({CX,CY} , H)  >  Radius of
+	true ->
+	    closest_in_radius({CX,CY} , Radius, T);
 	_ ->
-	    element(2,hd(ets:lookup(dash_lines, element(2,lists:min(T)))))
+	    ets_lookup(H)
     end.
+
+
+    %% MatchSpec = match_spec(CX,CY,Radius),
+    %% T = ets:select(dash_lines, MatchSpec),
+    %% case T of
+    %% 	[] ->
+    %% 	    not_found;
+    %% 	_ ->
+    %% 	    element(2,hd(ets:lookup(dash_lines, element(2,lists:min(T)))))
+    %% end.
 
 
 rect_angle({{X1,Y1},_,{X2,Y2},_}) ->
     math:atan2(Y2-Y1 , X2-X1).
 
 
-calculate_correct_pos([Dash| T]) ->
-
-     
-    case closest_in_radius(Dash#dash_line.center_point, 400) of
+calculate_correct_pos([Dash| T], Last_Dashes) ->
+    case closest_in_radius(Dash#dash_line.center_point, 100, Last_Dashes) of
 	not_found ->
-	    calculate_correct_pos(T);
+	    calculate_correct_pos(T, Last_Dashes);
 	Corresponding_Dash ->
 	    Offset = offset_point(Dash#dash_line.center_point , Corresponding_Dash#dash_line.center_point),
 	    Angle1 = rect_angle(Dash#dash_line.box),
@@ -313,10 +327,10 @@ calculate_correct_pos([Dash| T]) ->
 		    {Corresponding_Dash#dash_line.center_point, {Offset, Delta_Angle}};
 		_ ->
 %%		    io:format("Bad Lenght ~p~n", [Length]),
-		    calculate_correct_pos(T)
+		    calculate_correct_pos(T, Last_Dashes)
 	    end
     end;
-calculate_correct_pos([]) ->
+calculate_correct_pos([], _ ) ->
     not_found.
     
 
@@ -446,7 +460,50 @@ get_length([P1,P2,P3]) ->
     steering:getDistance(P1,P3).
 
 
-separate([H | T] , Buff) ->
-    separate(T, Buff ++ H#dash_line.points);
-separate([], Buff) ->
+separate([{_,H} | T] , Buff, 0) ->
+    separate(T, Buff ++ H#dash_line.points, 0);
+separate([{_,H} | T] , Buff, 1) ->
+    separate(T, Buff ++ lists:nth(2, H#dash_line.points) , 1);
+separate([{_,H} | T] , Buff, 2) ->
+    separate(T, Buff ++ H#dash_line.points, 2);
+separate([], Buff, _) ->
     Buff.
+
+
+get_last_dashes() ->
+    Match_Spec = [{{'$1',{'_','_','_','_','_','_','$2'}},
+		   [{'==','$2', undef}],
+		   ['$1']}],
+    case ets:select(dash_lines, Match_Spec) of
+	[] ->
+	    [];
+	[Last] ->
+	    get_last_dashes(5, Last)
+    end.
+
+get_last_dashes(0, _) ->
+    [];
+get_last_dashes(N, Last) ->
+    case ets:lookup(dash_lines, Last) of
+	[] ->
+	    [];
+	[{K,V}] ->
+	    case V#dash_line.dash_before of
+		undef ->
+		    [K];
+		L ->
+		    get_last_dashes(N-1, L) ++ [K]
+	    end
+    end.
+
+
+
+
+    %% case length(List) > 5 of
+    %% 	true ->
+    %% 	    lists:sublist(List, length(List) -4 , 5);
+    %% 	_ ->
+    %% 	    List
+    %% end.
+
+
