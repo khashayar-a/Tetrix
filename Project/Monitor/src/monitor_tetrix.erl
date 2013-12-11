@@ -35,6 +35,7 @@ init(State) ->
 
 loop(State)->
 
+  check_r_pi(),
   case nodes() of
       [] ->
         %case net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) ) of
@@ -100,4 +101,8 @@ startup_tetrix() ->
         ok 
   end. 
 
-
+check_r_pi() ->
+  case rpc:multicall(['node1@192.168.3.150'], erlang, is_alive,[]) of
+    {[true], []} -> io:format("rapsberry pi is up!\n",[]); 
+    {[], _} -> io:format("rapsberry pi is down!\n",[])
+  end.
