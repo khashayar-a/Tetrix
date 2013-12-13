@@ -39,6 +39,7 @@ process(State) ->
     %% get car position vehicle_data
     Car_Pos = vehicle_data:car_position(),
     Car_Heading = vehicle_data:car_heading(),
+    Car_Tail = vehicle_data:car_tail(),
     %% %% Side = map_gen:road_side(),
     
     %% %% query frame
@@ -50,7 +51,7 @@ process(State) ->
      		    not_found;
      		_ ->
 		    %%ok
-     		    map_gen:add_frame(Processed, ?InputLaneD , {Car_Pos,Car_Heading})
+     		    map_gen:add_frame(Processed, ?InputLaneD , {Car_Pos, Car_Tail, Car_Heading })
      	    end;
      	_ ->
      	    not_found

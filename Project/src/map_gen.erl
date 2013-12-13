@@ -14,10 +14,8 @@
 	 terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE). 
--define(XSCALE, 300/10.0).
--define(YSCALE, 420/20.0).
 
--record(state, {node_ahead, road_side, frame_data, matrix_id, camera_matrix, mode, last_dashes}).
+-record(state, {node_ahead, road_side, frame_data, matrix_id, camera_matrix, mode, last_dashes , debug}).
 -record(dash_line, {center_point, box, points, area, dash_before, dash_after}).
 
 -include("../include/offsetCalculation.hrl").
@@ -32,7 +30,7 @@ init([]) ->
 
     % Dummy values for the state 
     {ok, #state{road_side = right, node_ahead = {{0,0},{0,0},{0,0}},
-		matrix_id = ID , mode = start}}.
+		matrix_id = ID , mode = start, debug = off}}.
 
 %%--------------------------------------------------------------------
 % API Function Definitions 
@@ -59,10 +57,14 @@ add_frame(Points, Lane_ID, Car_Pos) ->
       ?SERVER,
       {add_frame, {{Points, Lane_ID}, Car_Pos}}).
 
+debug(N) ->
+    gen_server:cast(?SERVER, {debug, N}).
+
 % @doc
 % Retrieves the side of the road that the vehicle is on
 road_side() ->
     gen_server:call(?SERVER, road_side).
+
 save_tab() ->
     ets:tab2list(dash_lines).
 
@@ -104,52 +106,100 @@ handle_call(_Request, _From, State) ->
 
 %%--------------------------------------------------------------------
 
-handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos,Car_Heading}}}, State) ->
+handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}}, State) ->
 
     Temp_Dashes = map_functions:translate_dashes(State#state.matrix_id, 
-						 Dashes, {Car_Pos,Car_Heading}, []),
+						 Dashes, {Car_Pos, Car_Heading}, []),
     NewDashes = map_functions:connect_dashes(Temp_Dashes, undef, []), 
     
+
     case State#state.mode of
 	start ->
-	    io:format("START MODE~n" , []),
+	    io:format("START MODE ~p , ~p ~n" , [Car_Pos, Car_Heading]),
+	    io:format("Temp DASHES : ~p~n" , [Dashes]),
+	    io:format("NEW DASHES : ~p~n" , [NewDashes]),
 	    map_functions:insert_dashes(NewDashes),
-	    {noreply, State#state{mode = recording, last_dashes = map_functions:get_last_dashes()}};
+	    {noreply, State#state{mode = recording, last_dashes = map_functions:get_last_dashes() , debug = off}};
  	recording ->
  	    Correction = map_functions:calculate_correct_pos(NewDashes , State#state.last_dashes),  
  	    case Correction of
- 		not_found ->
-		    Estimated_Dashes = [] ,%%jose(),
-		    map_functions:calculate_estimated_correction(NewDashes , Estimated_Dashes),
-		    %% io:format("Correction NotFound ~n", []),
- 		    {noreply, State#state{mode = recording}};
- 		{Center_Point = {Cx,Cy}, {Offset={Ox,Oy}, Delta_Angle}} ->
+		not_found ->
+%%		    io:format("N" , []),
+		    case State#state.debug of
+			on ->
+			    io:format("NEW DASHES : ~p~nLast~p~n" , [NewDashes, State#state.last_dashes]);
+			_ ->
+			    ok
+		    end,
+		    Estimated_Dashes =
+			map_functions:generate_estimated_dashes(State#state.last_dashes),  
+		    Estimated_Correction = 
+			map_functions:calculate_estimated_correction(NewDashes , Estimated_Dashes),
+		    Last_Dash = map_functions:get_last(State#state.last_dashes),
+		    Distance = map_functions:getDistance(Last_Dash#dash_line.center_point,
+							 (hd(NewDashes))#dash_line.center_point),
+		    case {Distance > 500 , Estimated_Correction} of
+			{_, not_found} ->
+			    {noreply, State#state{mode = recording, debug = off}};
+			{false, _} ->
+			    {noreply, State#state{mode = recording, debug = off}};
+			{true, {Center_Point = {Cx,Cy}, {Offset={Ox,Oy}, Delta_Angle}}} ->
+			    io:format("EsTimation : ~p~n", [Estimated_Correction]),
+			    Moved_Dashes = map_functions:move_dashes(NewDashes, 
+								     Estimated_Correction, []),
+			    Head_Dash = hd(Moved_Dashes),
+			    ets:insert(dash_lines, 
+				       {Last_Dash#dash_line.center_point, 
+					Last_Dash#dash_line{
+					  dash_after = Head_Dash#dash_line.center_point}
+				       }),
+			    Connected_Dashes = 
+				map_functions:connect_dashes(Moved_Dashes,
+							     Last_Dash#dash_line.center_point, []), 
+			    map_functions:insert_dashes(Connected_Dashes),
+			    New_CarPos = map_functions:move_point(Car_Pos, Estimated_Correction),
+			    New_CarHeading = Car_Heading  + Delta_Angle,
+			    gen_server:cast(vehicle_data, 
+					    {correct_position, New_CarPos , New_CarHeading}),
+			    {noreply, State#state{mode = recording , 
+						  last_dashes = map_functions:get_last_dashes(), 
+						  debug = off}}
+		    end;
+		{Center_Point = {Cx,Cy}, {Offset={Ox,Oy}, Delta_Angle}} ->
 		    %% io:format("Correction found ~p~n", [Correction]),
 		    Dashes_Needed = map_functions:remove_dashes_before({Cx-Ox, Cy-Oy}, NewDashes),
   		    Moved_Dashes = map_functions:move_dashes(Dashes_Needed, Correction, []),
   		    Orig_Dash = map_functions:ets_lookup(Center_Point),
-		    case Orig_Dash#dash_line.dash_before of
-			undef ->
-			    ok;
-			Before_Point ->
-			    Before_Dash = map_functions:ets_lookup(Before_Point),
-			    Head_Dash = hd(Moved_Dashes),
+		    %% case Orig_Dash#dash_line.dash_before of
+		    %% 	undef ->
+		    %% 	    ok;
+		    %% 	Before_Point ->
+		    %% 	    Before_Dash = map_functions:ets_lookup(Before_Point),
+
+		    %% end,
+		    
+		    Connected_Dashes = map_functions:connect_dashes(tl(Moved_Dashes),
+								    Orig_Dash#dash_line.center_point,
+								    []),
+		    case Connected_Dashes of 
+			[] ->
+			    ow_well;
+			[Head_Dash| _] ->
 			    ets:insert(dash_lines, 
-				       {Before_Dash#dash_line.center_point, 
-					Before_Dash#dash_line{
+				       {Orig_Dash#dash_line.center_point, 
+					Orig_Dash#dash_line{
 					  dash_after = Head_Dash#dash_line.center_point}
-				       })
+				       }),
+		    
+			    %%		    io:format("ORIGINAL :~p~nCONNECTION : ~p", [Orig_Dash, Connected_Dashes]),
+			    map_functions:clean_ets_dashes(Orig_Dash#dash_line.dash_after),
+			    map_functions:insert_dashes(Connected_Dashes)
 		    end,
-		    Connected_Dashes = map_functions:connect_dashes(Moved_Dashes,
-								    Orig_Dash#dash_line.dash_before,
-								    []), 	    
-%%		    Second_Dash = hd(tl(Connected_Dashes)),
-  		    map_functions:clean_ets_dashes(Center_Point),
- 		    map_functions:insert_dashes(Connected_Dashes),
  		    New_CarPos = map_functions:move_point(Car_Pos, Correction),
-		    New_CarHeading = Car_Heading  + Delta_Angle,
+		    New_CarTail = map_functions:move_point(Car_Tail, Correction),
+		    New_CarHeading = steering:getAng(New_CarTail, New_CarPos),
  		    gen_server:cast(vehicle_data, {correct_position, New_CarPos , New_CarHeading}),
-		    {noreply, State#state{mode = recording , 
+		    {noreply, State#state{mode = recording , debug = off,
 					  last_dashes = map_functions:get_last_dashes()}}
  	    end
     end;
@@ -187,6 +237,8 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos,Car_Heading}}}, State) ->
 %%             {noreply, State#state{node_ahead = Node_List, frame_data = Node_List , mode = recording}}
 %%     end;
 
+handle_cast({debug, N}, State) ->
+    {noreply, State#state{debug = N} };
 handle_cast(_Msg, State) ->
     {noreply, State}.
 

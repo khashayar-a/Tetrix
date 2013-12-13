@@ -2,6 +2,9 @@
 
 -record(dash_line, {center_point, box, points, area, dash_before, dash_after}).
 
+-compile(export_all).
+
+
 translate_points(ID, [Point | T] , Buff) ->
     case translate_point(ID, Point) of
 	[] ->
@@ -14,15 +17,15 @@ translate_points(_,[], Buff) ->
 
 translate_dash(ID, {CenterPoint, {{R1,R2,R3,R4} , {Bottom, Middle, Top}}}, {Car_Pos, Car_Heading}) ->
     Center = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID, CenterPoint)),
-    BottomLeft = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R1)),
-    TopLeft = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R2)),
-    TopRight = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R3)),
-    BottomRight = steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R4)),
+    BottomLeft =  steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R1)),
+    TopLeft =  steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R2)),
+    TopRight =  steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R3)),
+    BottomRight =  steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,R4)),
     #dash_line{center_point = Center, 
 	       box = {BottomLeft, TopLeft, TopRight, BottomRight},
-	       points = [steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,Bottom)),
-			 steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,Middle)),
-			 steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,Top))], 
+	       points = [ steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,Bottom)),
+			  steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,Middle)),
+			  steering:local_to_global(Car_Pos, Car_Heading, translate_point(ID,Top))], 
 	       area = calculate_box_area(BottomLeft, TopLeft, TopRight, BottomRight),
 	       dash_before = undef, dash_after = undef}.
 
@@ -89,19 +92,21 @@ rect_angle({{X1,Y1},_,{X2,Y2},_}) ->
 
 
 calculate_correct_pos([Dash| T], Last_Dashes) ->
-    case closest_in_radius(Dash#dash_line.center_point, 100, Last_Dashes) of
+    case closest_in_radius(Dash#dash_line.center_point, 300, Last_Dashes) of
 	not_found ->
+%%	    io:format("1" , []),
 	    calculate_correct_pos(T, Last_Dashes);
 	Corresponding_Dash ->
 	    Offset = offset_point(Dash#dash_line.center_point , Corresponding_Dash#dash_line.center_point),
 	    Angle1 = rect_angle(Dash#dash_line.box),
 	    Angle2 = rect_angle(Corresponding_Dash#dash_line.box),
-	    Delta_Angle = Angle2 - Angle1,
+	    Delta_Angle = steering:normalized((Angle2 - Angle1)),
 	    Length = get_length(Dash#dash_line.points),
-	    case {Length > 150 , Length < 250} of
-		{true,true} ->
+	    case {Length > 150 , Length < 250 } of
+		{true, true} ->
 		    {Corresponding_Dash#dash_line.center_point, {Offset, Delta_Angle}};
 		_ ->
+%%		    io:format("2~p" , [Length]),
 %%		    io:format("Bad Lenght ~p~n", [Length]),
 		    calculate_correct_pos(T, Last_Dashes)
 	    end
@@ -110,20 +115,22 @@ calculate_correct_pos([], _ ) ->
     not_found.
     
 calculate_estimated_correction([Dash| T] , Estimated_Dashes) ->
-    case find_closest_dash(Dash#dash_line.center_point, Estimated_Dashes, {10000, undef}) of
+    case find_closest_dash(Dash#dash_line.center_point, Estimated_Dashes, {400, undef}) of
 	not_found ->
-	    calculate_correct_pos(T, Estimated_Dashes);
+	    calculate_estimated_correction(T, Estimated_Dashes);
 	Corresponding_Dash ->
 	    Offset = offset_point(Dash#dash_line.center_point , Corresponding_Dash#dash_line.center_point),
 	    Angle1 = rect_angle(Dash#dash_line.box),
 	    Angle2 = rect_angle(Corresponding_Dash#dash_line.box),
 	    Delta_Angle = Angle2 - Angle1,
-	    Length = 200, %%get_length(Dash#dash_line.points),
-	    case {Length > 150 , Length < 250} of
-		{true,true} ->
+	    Length = get_length(Dash#dash_line.points),
+	    case {Length > 150 , Length < 250 ,
+		  Delta_Angle < (math:pi() / 180 * 7), 
+		  Delta_Angle > (math:pi() / 180 * -7)} of
+		{true, true , ture , ture} ->
 		    {Corresponding_Dash#dash_line.center_point, {Offset, Delta_Angle}};
-		X_ ->
-		    calculate_correct_pos(T, Estimated_Dashes)
+		_ ->
+		    calculate_estimated_correction(T, Estimated_Dashes)
 	    end
     end;
 calculate_estimated_correction([], _) ->
@@ -191,6 +198,16 @@ move_point({X,Y},{{Cx,Cy},{{Dx,Dy}, Rotation}}) ->
 
     {round(NewX), round(NewY)}.
 
+local_to_global({Cx,Cy} , Rotation, {X,Y}) ->
+    
+    Distance = getDistance({X,Y}, {Cx,Cy}),
+    Angle = getAng({X,Y}, {Cx,Cy}),
+    NewX = (Distance * math:cos(Angle+Rotation)) + Cx ,
+    
+    NewY = (Distance * math:sin(Angle+Rotation)) + Cy ,
+
+    {round(NewX), round(NewY)}.
+
 
 ets_lookup(Point) ->
     case ets:lookup(dash_lines, Point) of
@@ -215,8 +232,10 @@ connect_dashes([H1,H2|T] , Before , Buff) ->
 		   Buff ++ [H1#dash_line{dash_before = Before , 
 					 dash_after = H2#dash_line.center_point}]);
 connect_dashes([H], Before, Buff) ->
-    	   Buff ++ [H#dash_line{dash_before = Before , 
-					 dash_after = undef}].
+    Buff ++ [H#dash_line{dash_before = Before , 
+			 dash_after = undef}];
+connect_dashes(_,_,_) ->
+    [].
 
 
 remove_dashes_before({Cx,Cy},List = [H|T]) ->
@@ -374,3 +393,20 @@ gen_dash_circle(Points, Amount, LastPointAngel, {CenterX,CenterY},Radius,ClockWi
 			
     gen_dash_circle([Result |Points], Amount-1, LastPointAngel, {CenterX,CenterY},Radius,ClockWise).
 	
+
+
+
+get_last([Last]) ->
+    ets_lookup(Last);
+get_last([_|T]) ->
+    get_last(T).
+
+
+generate_estimated_dashes([_,_,P1,P2,P3]) ->
+    add_dashes(P1,P2,P3,8);
+generate_estimated_dashes([_,P1,P2,P3]) ->
+    add_dashes(P1,P2,P3,8);
+generate_estimated_dashes([P1,P2,P3]) ->
+    add_dashes(P1,P2,P3,8);
+generate_estimated_dashes(_) ->
+    [].
