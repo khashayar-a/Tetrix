@@ -65,16 +65,18 @@ center_point({X1,Y1}, {X2,Y2}) ->
 offset_point({X1,Y1}, {X2,Y2}) ->
     {X2-X1, Y2-Y1}.
 
-
-closest_in_radius(_,_,[]) ->
-    not_found;
-closest_in_radius({CX,CY}, Radius , [H | T]) ->
-    case getDistance({CX,CY} , H)  >  Radius of
+closest_in_radius(Dash, [Last | T], {Prev_Distance, Closest_Dash}) ->
+    Distance = getDistance(Dash, Last),  
+    case Distance < Prev_Distance of
 	true ->
-	    closest_in_radius({CX,CY} , Radius, T);
-	_ ->
-	    ets_lookup(H)
-    end.
+	    find_closest_dash(Dash, T, {Distance, Last});    
+	false ->
+	    find_closest_dash(Dash, T, {Prev_Distance, Closest_Dash})
+    end;      
+closest_in_radius(_, [] , {_, undef}) ->
+    not_found;
+closest_in_radius(_, [] , {_, Dash}) ->
+    ets_lookup(Dash).
 
 
     %% MatchSpec = match_spec(CX,CY,Radius),
@@ -92,22 +94,20 @@ rect_angle({{X1,Y1},_,{X2,Y2},_}) ->
 
 
 calculate_correct_pos([Dash| T], Last_Dashes) ->
-    case closest_in_radius(Dash#dash_line.center_point, 300, Last_Dashes) of
+    case closest_in_radius(Dash#dash_line.center_point, Last_Dashes,  {300, undef}) of
 	not_found ->
-%%	    io:format("1" , []),
 	    calculate_correct_pos(T, Last_Dashes);
 	Corresponding_Dash ->
-	    Offset = offset_point(Dash#dash_line.center_point , Corresponding_Dash#dash_line.center_point),
+	    Offset = offset_point(Dash#dash_line.center_point , 
+				  Corresponding_Dash#dash_line.center_point),
 	    Angle1 = rect_angle(Dash#dash_line.box),
 	    Angle2 = rect_angle(Corresponding_Dash#dash_line.box),
 	    Delta_Angle = steering:normalized((Angle2 - Angle1)),
 	    Length = get_length(Dash#dash_line.points),
 	    case {Length > 150 , Length < 250 } of
 		{true, true} ->
-		    {Corresponding_Dash#dash_line.center_point, {Offset, Delta_Angle}};
+		    {[Dash|T] , Corresponding_Dash, {Offset, Delta_Angle}};
 		_ ->
-%%		    io:format("2~p" , [Length]),
-%%		    io:format("Bad Lenght ~p~n", [Length]),
 		    calculate_correct_pos(T, Last_Dashes)
 	    end
     end;
