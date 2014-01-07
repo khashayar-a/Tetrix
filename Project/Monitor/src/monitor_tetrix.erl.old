@@ -1,0 +1,128 @@
+-module(monitor_tetrix).
+
+%% API
+-export([start/0]).
+
+%% Internal exports
+-export([init/1, startup_tetrix/0]).
+
+-define(SERVER, ?MODULE). 
+
+-record(state, {host, currentPOS}).
+
+%%--------------------------------------------------------------------
+% API Function Definitions 
+%%--------------------------------------------------------------------
+
+start()->
+
+  % Get the program going
+
+  % Initilize the module
+  Host = get_hostname(),
+  State = #state{host = Host, currentPOS = 0},
+  Pid = spawn(?SERVER, init, [State]),
+  register(shell, Pid),
+  {ok, Pid}.
+
+%%--------------------------------------------------------------------
+%% Internal functions
+%%--------------------------------------------------------------------
+
+init(State) ->
+  %net_kernel:start(['node2', shortnames]),
+  loop(State).
+
+loop(State)->
+
+  check_r_pi(),
+  case nodes() of
+      % Executes if no nodes are connected
+      [] ->
+
+        % Tries to connect to the tetrix app
+        case net_kernel:connect_node('node1@192.168.3.160') of
+              false ->
+                    timer:sleep(1000),
+                    io:format("false: no connection\n",[]),
+                    timer:sleep(2000),
+                    case startup_tetrix() of
+                     ok ->
+                       %net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) )
+                       net_kernel:connect_node('node1@192.168.3.160')
+                    end;
+ 
+                    %loop(State);
+              true ->
+                  io:format("connection established\n",[])
+        end,
+
+        % Checks if the main tetrix app is up
+        case rpc:multicall(['node1@192.168.3.160'], erlang, is_alive, []) of
+            {[],[]} ->
+                 io:format("tetrix app node is not alive\n",[]),
+                 case startup_tetrix() of
+                    ok ->
+                      %net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) )
+                      net_kernel:connect_node('node1@192.168.3.160')
+                 end,
+ 
+                timer:sleep(1000),
+                loop(State);
+            {[true],_} ->
+                io:format("Monitoring tetrix app",[])
+        end;
+      _ ->
+        case {lists:member('node1@192.168.3.160', nodes()), lists:member('node2@192.168.3.150', nodes())} of
+            {true, true} -> 
+              io:format("sending msg to tetrix app\n",[]),
+              {shell,  'node1@192.168.3.160'} ! {check_availability, self()};
+            {false, true} ->
+              io:format("couldn't send a message to tetrix\n",[]),
+              case startup_tetrix() of
+                ok ->
+                  %net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) )
+                  net_kernel:connect_node('node1@192.168.3.160')
+              end
+        end
+%        {shell, list_to_atom("node1@" ++ State#state.host) } ! {check_availability, self()}
+        %{shell,  'node1@192.168.3.160'} ! {check_availability, self()}
+  end,
+
+  {shell,'node1@192.168.3.160' } ! {check_availability, self()},
+
+  receive
+  {ok, available} ->
+        io:format("tetrix app is available!\n",[]),
+        timer:sleep(1000),
+        loop(State)
+  end.
+
+%% @doc
+%% Retrieves the hostmachines host name i.e. tetrix@odroid, hostname is odroid
+get_hostname()->
+  RawHost = os:cmd("hostname"),
+  string:strip(RawHost,right,$\n).
+
+startup_tetrix() ->
+  %ok.
+  os:cmd(".././init_tetrix"), 
+  RawAnswer = os:cmd("./src/tetrix_available.sh"),  
+  Answer = string:strip(RawAnswer,right,$\n),
+
+  case Answer of
+    "0" ->
+        io:format("looping, trying to start tetrix app", []),
+        startup_tetrix();
+    "1" ->
+        ok 
+  end. 
+
+check_r_pi() ->
+  case rpc:multicall(['node2@192.168.3.150'], erlang, is_alive,[]) of
+    {[true], []} -> 
+      io:format("rapsberry pi is up!\n",[]), 
+      timer:sleep(1000);
+  
+    {[], _} -> io:format("rapsberry pi is down!\n",[])
+  end.

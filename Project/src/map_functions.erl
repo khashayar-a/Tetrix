@@ -69,9 +69,9 @@ closest_in_radius(Dash, [Last | T], {Prev_Distance, Closest_Dash}) ->
     Distance = getDistance(Dash, Last),  
     case Distance < Prev_Distance of
 	true ->
-	    find_closest_dash(Dash, T, {Distance, Last});    
+	    closest_in_radius(Dash, T, {Distance, Last});    
 	false ->
-	    find_closest_dash(Dash, T, {Prev_Distance, Closest_Dash})
+	    closest_in_radius(Dash, T, {Prev_Distance, Closest_Dash})
     end;      
 closest_in_radius(_, [] , {_, undef}) ->
     not_found;
@@ -102,7 +102,7 @@ calculate_correct_pos([Dash| T], Last_Dashes) ->
 				  Corresponding_Dash#dash_line.center_point),
 	    Angle1 = rect_angle(Dash#dash_line.box),
 	    Angle2 = rect_angle(Corresponding_Dash#dash_line.box),
-	    Delta_Angle = steering:normalized((Angle2 - Angle1)),
+	    Delta_Angle = Angle2 - Angle1, %%steering:normalized((Angle2 - Angle1)),
 	    Length = get_length(Dash#dash_line.points),
 	    case {Length > 150 , Length < 250 } of
 		{true, true} ->
@@ -122,13 +122,14 @@ calculate_estimated_correction([Dash| T] , Estimated_Dashes) ->
 	    Offset = offset_point(Dash#dash_line.center_point , Corresponding_Dash#dash_line.center_point),
 	    Angle1 = rect_angle(Dash#dash_line.box),
 	    Angle2 = rect_angle(Corresponding_Dash#dash_line.box),
-	    Delta_Angle = Angle2 - Angle1,
+	    Delta_Angle = Angle2 -  Angle1, %% steering:normalized((Angle2 - Angle1)),
 	    Length = get_length(Dash#dash_line.points),
-	    case {Length > 150 , Length < 250 ,
-		  Delta_Angle < (math:pi() / 180 * 7), 
-		  Delta_Angle > (math:pi() / 180 * -7)} of
-		{true, true , ture , ture} ->
-		    {Corresponding_Dash#dash_line.center_point, {Offset, Delta_Angle}};
+	    case {Length > 150 , Length < 250 %%,
+		 %% Delta_Angle < (math:pi() / 180 * 25), 
+		 %% Delta_Angle > (math:pi() / 180 * -25)
+		 } of
+		{true, true} -> %%, true , true} ->
+		    {[Dash| T] , Corresponding_Dash, {Offset, Delta_Angle}};
 		_ ->
 		    calculate_estimated_correction(T, Estimated_Dashes)
 	    end
@@ -288,7 +289,8 @@ get_length([P1,P2,P3]) ->
 
 
 separate([{_,H} | T] , Buff, 0) ->
-    separate(T, Buff ++ H#dash_line.points, 0);
+    {ok,[OP2]} = offsetCalculation:calculate_offset_list(2, 1, H#dash_line.points),   
+    separate(T, Buff ++ H#dash_line.points ++ [OP2], 0);
 separate([{_,H} | T] , Buff, 1) ->
     separate(T, Buff ++ lists:nth(2, H#dash_line.points) , 1);
 separate([{_,H} | T] , Buff, 2) ->
@@ -336,63 +338,89 @@ get_last_dashes(N, Last) ->
 
 
 
-add_dashes(P1,P2,P3,Amount)->
-	Circle = steering:findcircle(P1,P2,P3),
-	case Circle of
-		{{_CenterX,_CenterY},_Radius,_ClockWise} -> 
-			Points = gen_dash_circle( Circle, {P2,P3}, Amount);
-		_ -> Points = gen_dash_straight({P2, P3}, Amount)
-	end,
-	Points.
-			
+add_dashes({X1,Y1}, {X2,Y2}, {X3,Y3},Amount)->
+    ValX = min(abs(X1-X2)*1000000, abs(X2-X3)*1000000),
+    ValY = min(abs(Y1-Y2)*1000000, abs(Y2-Y3)*1000000),
+    B1 = (ValX < 1) or (ValY < 1),
+    B2 = math:atan2(Y2-Y1,X2-X1) == math:atan2(Y3-Y2,X3-X2),
+    case  {B1 , B2} of 
+        {false, false} ->
+            case steering:findcircle({X1,Y1}, {X2,Y2}, {X3,Y3}) of 
+                infinite -> 
+		    Points = gen_dash_straight({{X2,Y2}, {X3,Y3}}, Amount);
+                {CenterPoint, Radius, Clockwise} -> 
+                    Points = gen_dash_circle( {CenterPoint, Radius, Clockwise}, {X3,Y3}, Amount);
+                Unknown ->
+                    Points = gen_dash_straight({{X2,Y2}, {X3,Y3}}, Amount)       
+            end;
+        _ ->
+            Points = gen_dash_straight({{X2,Y2}, {X3,Y3}}, Amount)
+    end,
+    Points.
 
 gen_dash_straight({P2, P3}, Amount) ->
-	Angel = getAng(P2, P3),
-	gen_dash_straight([], Amount, Angel, P3).
+    Angel = getAng(P2, P3),
+    gen_dash_straight([], Amount, Angel, P3).
+gen_dash_straight(Points, 0, _Angel, _LastPoint) ->
+    Points;
+gen_dash_straight(Points, Amount, Angel, {XPoint,YPoint}) ->
+    Xc = XPoint+200*Amount*math:cos(Angel),
+    Yc = YPoint+200*Amount*math:sin(Angel),
+    Xbl = XPoint+200*Amount*math:cos(Angel)-100*math:cos(Angel)-10*math:cos(Angel-(math:pi()/2)),
+    Ybl = YPoint+200*Amount*math:sin(Angel)-100*math:sin(Angel)-10*math:sin(Angel-(math:pi()/2)),
+    Xtl = XPoint+200*Amount*math:cos(Angel)+100*math:cos(Angel)-10*math:cos(Angel-(math:pi()/2)),
+    Ytl = YPoint+200*Amount*math:sin(Angel)+100*math:sin(Angel)-10*math:sin(Angel-(math:pi()/2)),
+    Xtr = XPoint+200*Amount*math:cos(Angel)+100*math:cos(Angel)+10*math:cos(Angel-(math:pi()/2)),
+    Ytr = YPoint+200*Amount*math:sin(Angel)+100*math:sin(Angel)+10*math:sin(Angel-(math:pi()/2)),
+    Xbr = XPoint+200*Amount*math:cos(Angel)-100*math:cos(Angel)+10*math:cos(Angel-(math:pi()/2)),
+    Ybr = YPoint+200*Amount*math:sin(Angel)-100*math:sin(Angel)+10*math:sin(Angel-(math:pi()/2)),
+    Xcb = XPoint+200*Amount*math:cos(Angel)-100*math:cos(Angel),
+    Ycb = YPoint+200*Amount*math:sin(Angel)-100*math:sin(Angel),
+    Xct = XPoint+200*Amount*math:cos(Angel)+100*math:cos(Angel),
+    Yct = YPoint+200*Amount*math:sin(Angel)+100*math:sin(Angel),
+    Dash = #dash_line{center_point = {Xc,Yc} , 
+		      box= {{Xbl,Ybl},{Xtl,Ytl},{Xtr,Ytr},{Xbr,Ybr}},
+		      points = [{Xcb,Ycb},{Xc,Yc},{Xct,Yct}]}, 
+    gen_dash_straight([Dash| Points], Amount-1, Angel, {XPoint,YPoint}).
 
-gen_dash_straight(Points, 0, _Angel, _LastPoint) -> 
-	Points;
-gen_dash_straight(Points, Amount, Angel, {XPoint,YPoint}) -> 
-	X = XPoint+400*Amount*math:cos(Angel),
-	Y = YPoint+400*Amount*math:sin(Angel),
-	%%io:format("Straight: ~p~n", [Amount]),
-	gen_dash_straight([{X,Y}|Points], Amount-1, Angel, {XPoint,YPoint}).
-	
-
-gen_dash_circle({{CenterX,CenterY},Radius,ClockWise}, {{Dash1X,Dash1Y},{Dash2X,Dash2Y}}, Amount)->
-	Dash1Angel = math:atan2(Dash1Y-CenterY,Dash1X-CenterX),
-	Dash2Angel = math:atan2(Dash2Y-CenterY,Dash2X-CenterX),
-	gen_dash_circle([], Amount, Dash2Angel, 	{CenterX,CenterY},Radius,ClockWise).
+ 
+gen_dash_circle({{CenterX,CenterY},Radius,ClockWise}, {DashX,DashY}, Amount)->
+    Dash2Angel = math:atan2(DashY-CenterY,DashX-CenterX),
+    gen_dash_circle([], Amount, Dash2Angel, {CenterX,CenterY},Radius,ClockWise).
 
 gen_dash_circle(Points, 0, _LastPointAngel, {_CenterX,_CenterY},_Radius,_ClockWise)->
-	Points;
-
+    Points;
 gen_dash_circle(Points, Amount, LastPointAngel, {CenterX,CenterY},Radius,ClockWise)->
-    Xc = CenterX+Radius*math:cos(LastPointAngel-Amount*(200*ClockWise/Radius)), 
+    Xc = CenterX+Radius*math:cos(LastPointAngel-Amount*(200*ClockWise/Radius)),
     Yc = CenterY+Radius*math:sin(LastPointAngel-Amount*(200*ClockWise/Radius)),
-    Xbl = CenterX+(Radius+(10*ClockWise))*math:cos(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)), 
-    Ybl = CenterY+(Radius+(10*ClockWise))*math:sin(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
-    Xtl = CenterX+(Radius+(10*ClockWise))*math:cos(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)), 
-    Ytl = CenterY+(Radius+(10*ClockWise))*math:sin(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
-    Xtr = CenterX+(Radius-(10*ClockWise))*math:cos(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)), 
-    Ytr = CenterY+(Radius-(10*ClockWise))*math:sin(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
-    Xbr = CenterX+(Radius-(10*ClockWise))*math:cos(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)), 
-    Ybr = CenterY+(Radius-(10*ClockWise))*math:sin(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
-    Xcb = CenterX+(Radius)*math:cos(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)), 
-    Ycb = CenterY+(Radius)*math:sin(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
-    Xct = CenterX+(Radius)*math:cos(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)), 
-    Yct = CenterY+(Radius)*math:sin(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
-    
-    %%io:format("Circle: ~p~n", [Amount]),
-    Result = #dash_line{center_point = {round(Xc),round(Yc)} , 
-			box = {{round(Xbl),round(Ybl)},{round(Xtl),round(Ytl)},
-			       {round(Xtr),round(Ytr)},{round(Xbr),round(Ybr)}},
-			points = [{round(Xcb),round(Ycb)},
-				  {round(Xc),round(Yc)},
-				  {round(Xct),round(Yct)}]},
-			
-    gen_dash_circle([Result |Points], Amount-1, LastPointAngel, {CenterX,CenterY},Radius,ClockWise).
-	
+    Xbl = CenterX+(Radius+(10*ClockWise))*
+	math:cos(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Ybl = CenterY+(Radius+(10*ClockWise))*
+	math:sin(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Xtl = CenterX+(Radius+(10*ClockWise))*
+	math:cos(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Ytl = CenterY+(Radius+(10*ClockWise))*
+	math:sin(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Xtr = CenterX+(Radius-(10*ClockWise))*
+	math:cos(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Ytr = CenterY+(Radius-(10*ClockWise))*
+	math:sin(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Xbr = CenterX+(Radius-(10*ClockWise))*
+	math:cos(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Ybr = CenterY+(Radius-(10*ClockWise))*
+	math:sin(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Xcb = CenterX+(Radius)*
+	math:cos(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Ycb = CenterY+(Radius)*
+	math:sin(LastPointAngel+(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Xct = CenterX+(Radius)*
+	math:cos(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Yct = CenterY+(Radius)*
+	math:sin(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
+    Dash = #dash_line{center_point = {Xc,Yc},
+		      box = {{Xbl,Ybl},{Xtl,Ytl},{Xtr,Ytr},{Xbr,Ybr}},
+		      points = [{Xcb,Ycb},{Xc,Yc},{Xct,Yct}]},
+    gen_dash_circle([Dash| Points], Amount-1, LastPointAngel, {CenterX,CenterY},Radius,ClockWise).
 
 
 

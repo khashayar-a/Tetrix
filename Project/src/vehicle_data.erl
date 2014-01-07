@@ -80,7 +80,7 @@ handle_call(car_tail, _From, State) ->
     {reply, Reply, State};
 
 handle_call(car_heading, _From, State) ->
-    Reply = State#state.heading,
+    Reply = State#state.estimated_heading,
     {reply, Reply, State};
 
 handle_call(get_estimated, _From, State) ->
@@ -98,19 +98,25 @@ handle_cast({update_position, {PosX, PosY, DeltaHeading}}, State) ->
     Oldheading = State#state.estimated_heading,
     %% io:format("New Heading: ~p~n", [{Oldheading , DeltaHeading}]),
    
-    New_Heading = (Oldheading + DeltaHeading),
+    New_Heading = normalized(Oldheading + DeltaHeading),
     New_CarPos = {OldPosX + PosX, OldPosY + PosY},
     New_CarTail = calculate_tail(New_CarPos, New_Heading),
     {noreply, State#state{estimated_car_position = New_CarPos, 
 			  estimated_heading = New_Heading , 
 			  estimated_car_tail = New_CarTail}};
-
+handle_cast({hal_moved, Hal}, State) ->
+    {Dx,Dy} = calculate_pos(Hal, State#state.heading),
+    {X,Y} = State#state.estimated_car_position,
+    Car_Tail = calculate_tail({X+Dx, Y+Dy}, State#state.heading),
+    {noreply, State#state{estimated_car_position = {X+Dx, Y+Dy}, 
+			  estimated_car_tail = Car_Tail}};
 handle_cast({update_sensor, Data}, State) ->
     {noreply, State#state{sensor_data = Data }};
 
 handle_cast({correct_position, Position , Heading}, State) ->
     {noreply, State#state{car_position = Position , heading = Heading, 
 			  car_tail = calculate_tail(Position , Heading),
+			  estimated_heading = normalized(Heading),
 			  estimated_car_position = Position, 
 			  estimated_car_tail = calculate_tail(Position , Heading)}};
 
@@ -150,3 +156,40 @@ calculate_tail({X,Y} , Heading) ->
     Tx = math:cos(Heading + math:pi()) * 20 + X,
     Ty = math:sin(Heading + math:pi()) * 20 + Y,
     {Tx,Ty}.
+
+
+calculate_pos(DeltaHal, CurrHeading)->
+    NewHal = (DeltaHal)*(1000/57),
+    case (NewHal < 0) of
+        true ->
+	    DeltaDistance = NewHal + 1000;
+	false ->
+            DeltaDistance = NewHal
+    end,
+    PosX = DeltaDistance * ( math:cos( CurrHeading )),
+    PosY = DeltaDistance * ( math:sin( (CurrHeading * math:pi()/180) )),
+    {PosX, PosY}.
+
+normalized(Angle)->
+    case {Angle > math:pi() , Angle < -math:pi()} of
+        {true, _} ->
+            NewAngle = normalize(Angle, (-2.0 * math:pi()) );
+        {_,true} ->
+            NewAngle = normalize(Angle, (2.0 * math:pi()) );
+        _ ->
+            NewAngle = Angle
+    end,
+    case abs(NewAngle) == math:pi() of
+        true ->
+            0.0;
+        _ ->
+            NewAngle
+    end.
+
+normalize(Angle, MyPI) ->
+    case {Angle > math:pi() , Angle < -math:pi()} of
+        {false,false} ->
+            Angle;
+        _ ->
+            normalize(Angle+MyPI, MyPI)
+    end.

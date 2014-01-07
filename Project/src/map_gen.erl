@@ -107,11 +107,12 @@ handle_call(_Request, _From, State) ->
 %%--------------------------------------------------------------------
 
 handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}}, 
-	    State#state{mode = recording}) ->
+	    State = #state{mode = recording}) ->
     Temp_Dashes = map_functions:translate_dashes(State#state.matrix_id, 
 						 Dashes, {Car_Pos, Car_Heading}, []),
     
-    Correction = calculate_correct_pos([Dash| T] , State#state.last_dashes),
+%%    Temp_Dashes = clear_far(Car_Pos, All_Dashes, []),
+    Correction = map_functions:calculate_correct_pos(Temp_Dashes , State#state.last_dashes),
     case State#state.debug of
 	on ->
 	    io:format("___________________________________________________________~n", []),
@@ -124,7 +125,44 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}},
     
     case Correction of 
 	not_found ->
-	    ok;
+	    Estimated_Dashes =
+	     	map_functions:generate_estimated_dashes(State#state.last_dashes),  
+	    Estimated_Correction = 
+	     	map_functions:calculate_estimated_correction(Temp_Dashes, Estimated_Dashes),
+	    Last_Dash = map_functions:get_last(State#state.last_dashes),
+	    Temp_Head_Dash = hd(Temp_Dashes),
+	    Distance = map_functions:getDistance(Last_Dash#dash_line.center_point,
+						  Temp_Head_Dash#dash_line.center_point),
+
+	    case {Distance > 500, Estimated_Correction} of
+		{false, _} ->
+		    ok;
+		{_, not_found} ->
+		    ok;
+		{true, {Dashes_Needed, Corresponding_Dash, {Offset, Delta_Angle}}} ->
+		    io:format("Estimated Found: ~p~n", [Estimated_Correction]),
+		    Moved_Dashes = map_functions:move_dashes(Dashes_Needed, 
+							     {Corresponding_Dash#dash_line.center_point,
+							      {Offset,Delta_Angle}}, []),
+		    Connected_Dashes = map_functions:connect_dashes(Moved_Dashes,
+								    Last_Dash#dash_line.center_point,
+								    []),
+		    Head_Dash = hd(Connected_Dashes),
+		    ets:insert(dash_lines, 
+			       {Last_Dash#dash_line.center_point, 
+				Last_Dash#dash_line{
+				  dash_after = Head_Dash#dash_line.center_point}
+			       }),
+		    
+		    map_functions:insert_dashes(Connected_Dashes),
+		    New_Car_Pos = map_functions:move_point(Car_Pos, 
+							   {Corresponding_Dash#dash_line.center_point,
+							    {Offset,Delta_Angle}}),
+		    New_Car_Heading = Car_Heading + Delta_Angle,
+		    gen_server:cast(vehicle_data, 
+				    {correct_position, New_Car_Pos , New_Car_Heading})
+	    end;
+	
 	{Dashes_Needed, Corresponding_Dash, {Offset, Delta_Angle}} ->
 	    Movement = map_functions:getDistance({0,0}, Offset),
 	    case Movement > 5 of
@@ -134,6 +172,30 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}},
 		    Moved_Dashes = map_functions:move_dashes(Dashes_Needed, 
 							     {Corresponding_Dash#dash_line.center_point,
 							      {Offset,Delta_Angle}}, []),
+	
+		    Connected_Dashes = map_functions:connect_dashes(Moved_Dashes,
+								    Corresponding_Dash#dash_line.dash_before,
+								    []),
+		    case Corresponding_Dash#dash_line.dash_before of
+			undef ->
+			    ok;
+			Point ->
+			    Head_Dash = hd(Connected_Dashes),
+			    Before_Dash = map_functions:ets_lookup(Point),
+			    ets:insert(dash_lines, 
+				       {Before_Dash#dash_line.center_point, 
+					Before_Dash#dash_line{
+					  dash_after = Head_Dash#dash_line.center_point}
+				       })
+		    end,
+		    map_functions:clean_ets_dashes(Corresponding_Dash#dash_line.center_point),
+		    map_functions:insert_dashes(Connected_Dashes),
+		    New_Car_Pos = map_functions:move_point(Car_Pos, 
+							   {Corresponding_Dash#dash_line.center_point,
+							    {Offset,Delta_Angle}}),
+		    New_Car_Heading = Car_Heading + Delta_Angle,
+		    gen_server:cast(vehicle_data, 
+				    {correct_position, New_Car_Pos , New_Car_Heading}),
 		    case State#state.debug of
 			on ->
 			    io:format("Moved_Dashes : ~p~n", [Moved_Dashes]);	
@@ -148,7 +210,7 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}},
 
 
 handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}}, 
-	    State#state{mode = start}) ->
+	    State = #state{mode = start}) ->
     
     Temp_Dashes = map_functions:translate_dashes(State#state.matrix_id, 
 						 Dashes, {Car_Pos, Car_Heading}, []),
@@ -228,3 +290,16 @@ code_change(_OldVsn, State, _Extra) ->
 say(Format, Data) ->
     io:format("~p:~p: ~s~n", [?MODULE, self(), io_lib:format(Format, Data)]).
 
+
+
+
+clear_far(Car_Pos, [Dash |T] , Buff) ->
+    case map_functions:getDistance(Car_Pos, Dash#dash_line.center_point) > 1500 of
+	false ->
+	    clear_far(Car_Pos, T , Buff ++ [Dash]);
+	_ ->
+	    clear_far(Car_Pos, T , Buff)
+    end;
+clear_far(_,[],Buff) ->
+    Buff.
+	

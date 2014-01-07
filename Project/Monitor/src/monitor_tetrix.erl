@@ -1,10 +1,18 @@
 -module(monitor_tetrix).
 
+-behaviour(gen_server).
+
 %% API
--export([start/0]).
+%e-xport([start/0]).
+-export([start_link/0, init_loop/1]).
 
 %% Internal exports
--export([init/1, startup_tetrix/0]).
+%-export([init/1, startup_tetrix/0]).
+
+% server callbacks
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+   terminate/2, code_change/3]).
+
 
 -define(SERVER, ?MODULE). 
 
@@ -14,79 +22,136 @@
 % API Function Definitions 
 %%--------------------------------------------------------------------
 
-start()->
+%start()->
 
   % Get the program going
 
   % Initilize the module
-  Host = get_hostname(),
-  State = #state{host = Host, currentPOS = 0},
-  Pid = spawn(?SERVER, init, [State]),
-  register(shell, Pid),
-  {ok, Pid}.
+%  State = #state{host = 'hello', currentPOS = 0},
+%  Pid = spawn(?SERVER, init, [State]),
+%  register(shell, Pid),
+%  {ok, Pid}.
+
+
+% starts server
+start_link() ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+%% Server Function Definitions
+%%--------------------------------------------------------------------
+
+handle_call(_Request, _From, State) ->
+    Reply = ok,
+    {reply, Reply, State}.
 
 %%--------------------------------------------------------------------
+
+handle_cast(_Msg, State) ->
+    {noreply, State}.
+
+
+%%--------------------------------------------------------------------
+
+handle_info({ok, available}, State) ->
+  io:format("tetrix app is available!\n",[]),
+ {noreply, State};
+
+handle_info(_Info, State) ->
+    % Unexpected messages, i.e. out-of-band
+    error_logger:info_msg("Unexpected message:~p~n", [_Info]),
+    {noreply, State}.
+
+%%--------------------------------------------------------------------
+
+code_change(_OldVsn, State, _Extra) ->
+    say("code_change ~p, ~p, ~p", [ _OldVsn, State, _Extra]),
+    {ok, State}.
+
+%%--------------------------------------------------------------------
+
+terminate(_Reason, _State) ->
+    error_logger:info_msg("terminating:~p~n", [?MODULE]),
+
+    ok.
+
+
 %% Internal functions
 %%--------------------------------------------------------------------
 
-init(State) ->
+init([]) ->
   %net_kernel:start(['node2', shortnames]),
-  loop(State).
+%  loop(self()),
+  proc_lib:start_link(?SERVER, init_loop, [self()]),
+  {ok, #state{host=0, currentPOS = 0}}.
+
+init_loop(Parent) ->
+  proc_lib:init_ack(Parent, {ok, self()}),
+  loop(Parent).
 
 loop(State)->
-
   check_r_pi(),
-  case nodes() of
-      [] ->
-        %case net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) ) of
-        case net_kernel:connect_node('node1@192.168.3.160') of
-              false ->
-                    timer:sleep(1000),
-                    io:format("false: no connection\n",[]),
-                    timer:sleep(500),
-                    case startup_tetrix() of
-                     ok ->
-                       %net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) )
-                       net_kernel:connect_node('node1@192.168.3.160')
-                    end,
- 
-                    loop(State);
-              true ->
-                  io:format("connection established\n",[])
-        end,
-        case rpc:multicall(nodes(), erlang, is_alive, []) of
-            {[],[]} ->
-                 io:format("no nodes are alive\n",[]),
-                 case startup_tetrix() of
-                    ok ->
-                      %net_kernel:connect_node(list_to_atom("node1@" ++ State#state.host) )
-                      net_kernel:connect_node('node1@192.168.3.160')
-                 end,
- 
-                timer:sleep(1000),
-                loop(State);
-            {[true],_} ->
-                io:format("Monitoring tetrix app",[])
-        end;
-      _ ->
-%        {shell, list_to_atom("node1@" ++ State#state.host) } ! {check_availability, self()}
-        {shell,  'node1@192.168.3.160'} ! {check_availability, self()}
-  end,
+  case {rpc:multicall(['node1@192.168.3.160'], erlang, is_alive, []),
+          rpc:multicall(['node2@192.168.3.150'], erlang, is_alive, [])} of
 
-  {shell,'node1@192.168.3.160' } ! {check_availability, self()},
+    % no connections
+    {{[], _}, {[], _ } } ->
+         case net_kernel:connect_node('node1@192.168.3.160') of
+            false ->
+              io:format("false: no connections at all\n",[]),
+              timer:sleep(1000),
+              case startup_tetrix() of
+                ok ->
+                  net_kernel:connect_node('node1@192.168.3.160')
+              end,
+              timer:sleep(1000);
+            true ->
+              io:format("just connected to tetrix app!\n")
+         end,
+         loop(State);
 
-  receive
-  {ok, available} ->
-        io:format("tetrix app is available!\n",[]),
+    % tetrix app is down, monitor_tetrix_pi is up
+    { {[],_}, {[true],_} } ->
+         io:format("tetrix app is down, monitor_tetrix_pi is up\n",[]),
+         timer:sleep(1000),
+         % do something to start up tetrix_app 
+         case startup_tetrix() of
+            ok ->
+              net_kernel:connect_node('node1@192.168.3.160')
+         end,
+         timer:sleep(1000),
+         loop(State);
+
+    % tetrix app is up, monitor_tetrix_pi is down 
+    {{[true], _}, {[], _} } ->
+        io:format("tetrix app is up, monitor_tetrix_pi is down\n",[]),
+        timer:sleep(1000),
+        % do something to start up monitor_tetrix_pi 
+        os:cmd("ssh pi@192.168.3.150
+            '/home/pi/Tetrix/Raspberry-Pi/Monitor/init_monitor';tetrix"),
+        loop(State);
+
+
+    % all nodes are up
+    { {[true],_}, {[true], _} } ->
+
+        io:format("all nodes are up!\n",[]),
+        {shell, 'node1@192.168.3.160'} ! {check_availability, State},
+        %State ! {check_availability, State},
         timer:sleep(1000),
         loop(State)
   end.
 
-%% @doc
-%% Retrieves the hostmachines host name i.e. tetrix@odroid, hostname is odroid
-get_hostname()->
-  RawHost = os:cmd("hostname"),
-  string:strip(RawHost,right,$\n).
+%  {shell, 'node1@192.168.3.160'} ! {check_availability, self()},
+
+%  receive
+%  {ok, available} ->
+%        io:format("tetrix app is available!\n",[]),
+%        timer:sleep(1000),
+%        loop(State)
+%  end.
+
+
+
 
 startup_tetrix() ->
   os:cmd(".././init_tetrix"), 
@@ -102,7 +167,14 @@ startup_tetrix() ->
   end. 
 
 check_r_pi() ->
-  case rpc:multicall(['node1@192.168.3.150'], erlang, is_alive,[]) of
-    {[true], []} -> io:format("rapsberry pi is up!\n",[]); 
-    {[], _} -> io:format("rapsberry pi is down!\n",[])
+  case rpc:multicall(['node2@192.168.3.150'], erlang, is_alive, []) of
+    {[true], []} ->
+      io:format("raspberry pi is up!\n",[]);
+    {[], _} -> io:format("rasperry pi is down!\n",[])
   end.
+
+
+% Console print outs for server actions (init, terminate, etc) 
+say(Format, Data) ->
+    io:format("~p:~p: ~s~n", [?MODULE, self(), io_lib:format(Format, Data)]).
+

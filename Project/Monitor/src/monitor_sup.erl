@@ -25,4 +25,4 @@ start_link() ->
 
 init([]) ->
     %supervisor:start_link(car_ai, ?CHILD(car_ai, worker)),
-    {ok, { {one_for_one,5,10},[?CHILD_W(monitor_tetrix, supervisor)]}}.
+    {ok, { {one_for_one,5,10},[?CHILD(monitor_tetrix, supervisor)]}}.
