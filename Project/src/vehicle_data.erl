@@ -18,14 +18,15 @@
 
 init([]) ->
     say("init", []),
-    net_kernel:connect_node(?RPI),
-    case gen_server:call({hardware, ?RPI} , initial_position) of
-	undefined ->
-	    Position = {0,0};
-	{_,X,Y} ->
-	    Position = {X,Y}
-    end,
-    Heading = gen_server:call({hardware, ?RPI} , initial_heading),
+    %%net_kernel:connect_node(?RPI),
+    %%case gen_server:call({hardware, ?RPI} , initial_position) of
+%%	undefined ->
+%%	    Position = {0,0};
+%%	{_,X,Y} ->
+%%	    Position = {X,Y}
+%%    end,
+    Position = {0,0},
+    Heading = 0, %gen_server:call({hardware, ?RPI} , initial_heading),
     Tail_Position = calculate_tail(Position, Heading), 
     {ok, #state{car_position = Position,  heading = Heading, car_tail = Tail_Position,  
 		estimated_car_position = Position , estimated_heading = Heading, 
