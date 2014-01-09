@@ -18,7 +18,7 @@ using namespace cv;
 using namespace std;
 
 //#################################### DEFINES #####################################
-#define LINECOVERAGE 250.0
+#define LINECOVERAGE 220.0
 
 #define CENTER_X 376
 #define CENTER_Y 240
@@ -71,7 +71,8 @@ bool is_trash(vector<vector<Point2i> > line){
     return true;
 
   for (unsigned int i = 0; i < line.size(); ++i) {
-    float length = (((line[i][1].y  - LINECOVERAGE) / (480.0 - LINECOVERAGE)) * 30.0) + 10;
+    //float length = (((line[i][1].y  - LINECOVERAGE) / (480.0 - LINECOVERAGE)) * 30.0) + 15;
+    float length = (((line[i][1].y - LINECOVERAGE) / (480.0 - LINECOVERAGE)) * 30.0) + 15; 
     unsigned int width = line[i][1].x - line[i][0].x;
     if(width > length ){
       //cout << "WIDTH : " << width << " LENGTH "<< length<<  " HOW MUCH LEFT? "<< line.size() - i << "  I  "<<  i <<endl;
@@ -112,10 +113,17 @@ int find_dashed(vector<vector<vector<vector<Point2i> > > > grouped){
 	int last = grouped[i][j].size() -1;
 	Point2f start = center_point(grouped[i][j][last][0] , grouped[i][j][last][1]);
 
+	Point2f start_top = center_point(grouped[i][j][0][0],
+					 grouped[i][j][0][1]);
+
+	float dash_length = dist(start, start_top);
+
 	Point2f end  = center_point(grouped[i][j+1][0][0] , grouped[i][j+1][0][1]);
 	float distance =  start.y - end.y;// dist(start, end);
-	float length = (start.y - 250) / 160 * 65 + 8;
-	if(distance > length){
+	//float length = (start.y - LINECOVERAGE) / 160 * 65 + 20;
+	float length = (end.y - LINECOVERAGE) / 100 * 65 + 11; //88888888888888888888888888888888888888
+
+	if(distance > length || dash_length > 100){
 	  correct = false;
 	}
       }
