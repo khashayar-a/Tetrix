@@ -9,10 +9,10 @@ if [ $# -eq 0 ]; then
         then
             echo "Tetrix monitor is already running"
         else
-	    #./Monitor/init_monitor &
+	    #sudo  ./Monitor/init_monitor &	    #./Monitor/init_monitor &
 	    echo "Activated Tetrix Monitor"
     fi
-    sudo erl -pa ebin/ -sname node1 -setcookie nodes
+    sudo erl -pa ebin/ -name node1@192.168.3.160 -setcookie tetrix
 else
     if [ $1 = clean ]; then
         ./Monitor/init_monitor clean

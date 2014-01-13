@@ -30,7 +30,9 @@ loop()->
         From ! {origin, self()};
     {check_availability, From} ->
         %io:format("rec'd random message in check_availability",[]),
-        From ! {ok, available};
+        CarHeading = vehicle_data:car_heading(),
+        CarPOS = vehicle_data:car_position(),
+        From ! {ok, {CarHeading, CarPOS}};
     _ ->
         io:format("rec'd random message in tetrix_status",[])
   end,

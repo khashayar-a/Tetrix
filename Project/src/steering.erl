@@ -103,7 +103,7 @@ normalized(Angle)->
 	true ->
 	    0.0;
 	_ ->
-	    NewAngle
+	    NewAngle  
     end.
 
 normalize(Angle, MyPI) ->
@@ -120,29 +120,33 @@ getAng({X1,Y1} , {X2,Y2}) ->
 getDistance({X1,Y1} , {X2,Y2}) ->
     math:sqrt(math:pow(Y2-Y1,2) + math:pow(X2-X1,2)).
 
-local_to_global({CarX, CarY}, CarAng, {CoordXRaw, CoordYRaw}) ->
-    CoordXin = CoordXRaw,%% + 4,
-    CoordYin = CoordYRaw,%% + (-67),
+local_to_global({CarX, CarY}, Temp_CarAng, {CoordXRaw, CoordYRaw}) ->
+    CarAng = Temp_CarAng - (math:pi() /4),
+    CoordXin = CoordXRaw ,%%+ 4,
+    CoordYin = CoordYRaw ,%%+ (-67),
     CoordXZero = round(CoordXin * 100000) == 0,
     CoordYZero = round(CoordYin * 100000) == 0,
     case {CoordXZero,CoordYZero} of 
 	{true,true}->
-	    CoordX=CoordXin+0.000001,
-	    CoordY=CoordYin+0.000001;
+	    CoordX = CoordXin + 0.000001,
+	    CoordY = CoordYin + 0.000001;
 	{true,_} ->
-	    CoordX=CoordXin+0.000001,
+	    CoordX = CoordXin + 0.000001,
 	    CoordY = CoordYin;
 
 	{_,true} ->
-	    CoordY=CoordYin+0.000001,
-	    CoordX=CoordXin;
+	    CoordY = CoordYin + 0.000001,
+	    CoordX = CoordXin;
 	{_,_} -> 
-	    CoordX=CoordXin,
-	    CoordY=CoordYin
+	    CoordX = CoordXin,
+	    CoordY = CoordYin
     end,
-    X = CarX + (getDistance({0,0},{CoordX,CoordY})*(math:cos(CarAng+(getAng({0,0},{CoordX,CoordY}))))),
-    Y = CarY + (getDistance({0,0},{CoordX,CoordY})*(math:sin(CarAng+(getAng({0,0},{CoordX,CoordY}))))),
-    {round(X),round(Y)};
+    Origin = {0,0}, %%{-9.5, -40.4114},
+    X = CarX + (getDistance(Origin, {CoordX, CoordY}) * 
+		    (math:cos(CarAng + (getAng(Origin, {CoordX, CoordY}) - (math:pi()/2) )))),
+    Y = CarY + (getDistance(Origin, {CoordX, CoordY}) * 
+		    (math:sin(CarAng + (getAng(Origin, {CoordX, CoordY}) - (math:pi()/2) )))),
+    {round(X), round(Y)};
 local_to_global(_,_,_) ->
     well_fuck.
 

@@ -29,7 +29,7 @@ init([]) ->
     {ok, { {one_for_one,5,10},[?CHILD(vehicle_data, supervisor),
 			       ?CHILD(map_gen, supervisor), 
 			       ?CHILD_W(tetrix_status, worker), 
-			       ?CHILD(cunit, supervisor), 
+%%			       ?CHILD(cunit, supervisor), 
 %%			       ?CHILD_W(currentPos, worker),
 %%			       ?CHILD_W(terminal, worker),
 			       ?CHILD_W(image_proc, worker) 

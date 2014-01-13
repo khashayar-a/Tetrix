@@ -139,24 +139,28 @@ static ERL_NIF_TERM deinit_camera(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
 static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
   // GET IMG FROM CAMERA
+  // cout << "Function called" << endl;
   frame_t* frame;
   if (!enif_get_resource(env, argv[0], frame_res, (void**) &frame)) {
     return enif_make_badarg(env);
   } 
+  // cout << "Frame Allocated" << endl;
   int image_counter;
   enif_get_int(env, argv[1], &image_counter);
 
   IplImage* gray = frame->_frame;
+  // cout << "IPLIMAGE Allocated" << endl;
   //   GET IMG FROM CAMERA 
 
   //   if(image_counter % 5 == 0)
   //   {
-  //     stringstream ss;//create a stringstream
-  //     ss << "/home/tetrix/images/image" << image_counter/5 << ".jpg" ;//add number to the stream
-  //     cvSaveImage(ss.str().c_str() , gray);
+  //  stringstream ss;//create a stringstream
+  // ss << "/home/tetrix/images/image" << image_counter << ".jpg" ;//add number to the stream
+  //cvSaveImage(ss.str().c_str() , gray);
   //   }
 
-
+  if(image_counter < 10)
+    return enif_make_atom(env, "not_found");
   // IplImage* src = cvLoadImage("/home/robin/Downloads/pic.png");
   // IplImage* gray = cvCreateImage(cvGetSize(src), IPL_DEPTH_8U, 1);
   // cvCvtColor(src, gray, CV_RGB2GRAY);
@@ -169,14 +173,14 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
   line_range.length = 25;
 
   vector<vector<vector<Point2i> > > lanes;
-
+  // cout << "Process started Allocated" << endl;
    
   while (row > LINECOVERAGE) {
     bool bottom_found;
     bottom_found = false;
     vector<vector<Point2i> > current_line;
     while (!bottom_found) {
-      for (column = 151; column < 600; column++) {
+      for (column = 100; column < 650; column++) {
 	if ((uint) (gray->imageData[row * 752 + column]) > 100) {
 	  gray->imageData[row * 752 + column] = (char) 0;
 	  current_row = row;
@@ -196,14 +200,14 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
       line_range.length = (((current_row - LINECOVERAGE) / (480.0 - LINECOVERAGE)) * 30.0) + 10;
 
-      line_range.left = MAX(151,line_range.mid - line_range.length);
-      line_range.right = MIN(600,line_range.mid + line_range.length);
+      line_range.left = MAX(100,line_range.mid - line_range.length);
+      line_range.right = MIN(650,line_range.mid + line_range.length);
 
       column = line_range.left;
 
       vector<Point2i > single_line;
 
-      while ( (!hit_white && column < line_range.right) || (on_white > 0 && column < 600)) {
+      while ( (!hit_white && column < line_range.right) || (on_white > 0 && column < 650)) {
 	if ((uint) (gray->imageData[current_row * 752 + column]) > 100) {
 	  gray->imageData[current_row * 752 + column] = (char) 0;
 	  single_line.push_back(Point2i(column, current_row));
@@ -236,7 +240,12 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
       lanes.push_back(current_line);
 
   } // end of frame while
+  
+  // cout << "Picture ipl processed" << endl;
+    //release here
 
+  cvReleaseImage(&gray);
+  gray = NULL;
 
   unsigned int lanes_size = lanes.size();
   for (unsigned int i = 0; i < lanes.size(); i++) {
@@ -274,6 +283,7 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     }
   }
 
+  // cout << "connections done" << endl;
   vector<vector<vector<vector<Point2i> > > > grouped;
 
   vector<vector<vector<Point2i> > > temp;
@@ -305,7 +315,7 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 	int x = (((start.x - end.x) * (lanes_center.y - start.y)) / (start.y - end.y)) + start.x;
 	
 	float distance = dist(lanes_center , Point2f(x,lanes_center.y));
-	if(distance < 25){
+	if(distance < 50){
 	  if(!is_trash(lanes[i])){
 	    grouped[j].push_back(lanes[i]);
 	  }
@@ -324,13 +334,13 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     }
   }//end of for(unsigned int i... )
 
-
+  //cout << "grouped done" << endl;
   int dash_index = find_dashed(grouped);
-
+  //cout << "find dash done" << endl;
   if(dash_index == -1) 
     return enif_make_atom(env, "not_found");
 
-  
+  //cout << "Process ended" << endl;
 
   ERL_NIF_TERM final_result[grouped[dash_index].size()];
 
@@ -410,11 +420,9 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
       
     }//end of for
   
-
-
   ERL_NIF_TERM points_erl = enif_make_list_from_array(env, final_result, grouped[dash_index].size());
-
-  
+  // cout << "Ready to return" << endl;
+ 
   return points_erl;
 }
 

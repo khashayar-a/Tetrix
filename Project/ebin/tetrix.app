@@ -6,6 +6,7 @@
               {mod,{tetrix_app,[]}},
               {env,[]},
               {modules,[car_ai,cunit,cunit_nif,currentPos,hal_nif,
-                        hardware_data,hidnif,image_proc,imgproc_nif,map_gen,
-                        offsetCalculation,position_calc,scheduler,steering,
-                        tetrix_app,tetrix_status,tetrix_sup,vehicle_data]}]}.
+                        hardware_data,hidnif,image_proc,imgproc_nif,
+                        map_functions,map_gen,offsetCalculation,position_calc,
+                        scheduler,steering,tetrix_app,tetrix_status,
+                        tetrix_sup,vehicle_data]}]}.

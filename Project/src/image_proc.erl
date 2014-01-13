@@ -27,7 +27,7 @@ process_image() ->
 %% Starts the module
 init(State) ->
     %% initialize 
-    imgproc_nif:init(),
+    io:format("~p~n",[imgproc_nif:init()]),
     say("init", []),
     process(State).
 
@@ -39,23 +39,27 @@ process(State) ->
     %% get car position vehicle_data
     Car_Pos = vehicle_data:car_position(),
     Car_Heading = vehicle_data:car_heading(),
+    Car_Tail = vehicle_data:car_tail(),
     %% %% Side = map_gen:road_side(),
-    
+    %%    io:format("After vehicle data~n",[]),
     %% %% query frame
-     case imgproc_nif:get_pic() of
+    case imgproc_nif:get_pic() of
      	{ok, ImgRef} ->
-     	    Processed = imgproc_nif:process_pic(ImgRef, State),
-     	    case Processed of
-     		not_found ->
+%%	    io:format("After getpic success~n",[]),
+	    Processed = imgproc_nif:process_pic(ImgRef, State),
+%%	    io:format("After processpic success ~n",[]),
+	    case Processed of
+		not_found ->
      		    not_found;
-     		_ ->
+		_ ->
 		    %%ok
-     		    map_gen:add_frame(Processed, ?InputLaneD , {Car_Pos,Car_Heading})
-     	    end;
-     	_ ->
-     	    not_found
-     end,
-
+		    map_gen:add_frame(Processed, ?InputLaneD , {Car_Pos, Car_Tail, Car_Heading })
+	     end;
+	_ ->
+%%	    io:format("After getpic faile~n",[]),
+	    not_found
+    end,
+    
     timer:sleep(30),
     process(State+1).
 
