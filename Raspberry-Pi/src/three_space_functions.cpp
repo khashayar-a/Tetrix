@@ -117,7 +117,7 @@ float heading()
 	  }else{	
 	    value[i][j] = temp;
 	  }
-	}
+	} d;
       if(temp == 10)
 	{
 	  break;
@@ -130,17 +130,17 @@ float heading()
   
   if(y>0)
     {
-      d = 90 - atan(x/y) * 180 / M_PI;
+      d = (M_PI / 4) - atan(x/y);
     }
   if(y<0)
     {
-      d = 270 - atan(x/y) * 180 / M_PI;
+      d = (M_PI / 4 * 3) - atan(x/y);
     } 
   if(y==0)
     { 
       if(x<0)
 	{
-	  d = 180.0;
+	  d = M_PI;
 	}
       else
 	{

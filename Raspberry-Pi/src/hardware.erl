@@ -87,7 +87,9 @@ handle_cast({hal,Value}, State) ->
     Data = calculate_pos(State#state.hal, Value, State#state.prev_heading, State#state.heading),
     gen_server:cast({vehicle_data, ?ODROID} ,  {update_position, Data}),
     {noreply, State#state{prev_heading = State#state.heading, hal = Value, data = Data}};
-handle_cast({razer, Value} , State) ->
+%handle_cast({razer, Value} , State) ->
+%    {noreply, State#state{heading = Value}};
+handle_cast({angle, Value} , State) ->
     {noreply, State#state{heading = Value}};
 handle_cast(_Msg, State) ->
     {noreply, State}.

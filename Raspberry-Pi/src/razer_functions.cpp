@@ -29,24 +29,24 @@ int init()
   memset(&tio,0,sizeof(tio));
  
   tio.c_iflag &= ~(ICRNL |    /* disable CR-to-NL mapping */
-                        INLCR |    /* disable NL-to-CR mapping */
-                        IGNCR |    /* disable ignore CR */
-                        ISTRIP |   /* disable stripping of eighth bit */
-                        IXON |     /* disable output flow control */
-                        BRKINT |   /* disable generate SIGINT on brk */
-                        IGNPAR |
-                        PARMRK |
-                        IGNBRK |
-                        INPCK);    /* disable input parity detection */
-
+		   INLCR |    /* disable NL-to-CR mapping */
+		   IGNCR |    /* disable ignore CR */
+		   ISTRIP |   /* disable stripping of eighth bit */
+		   IXON |     /* disable output flow control */
+		   BRKINT |   /* disable generate SIGINT on brk */
+		   IGNPAR |
+		   PARMRK |
+		   IGNBRK |
+		   INPCK);    /* disable input parity detection */
+  
   tio.c_lflag &= ~(ICANON |   /* enable non-canonical mode */
-                        ECHO |     /* disable character echo */
-                        ECHOE |    /* disable visual erase */
-                        ECHOK |    /* disable echo newline after kill */
-                        ECHOKE |   /* disable visual kill with bs-sp-bs */
-                        ECHONL |   /* disable echo nl when echo off */
-                        ISIG |            /* disable tty-generated signals */
-                        IEXTEN);   /* disable extended input processing */
+		   ECHO |     /* disable character echo */
+		   ECHOE |    /* disable visual erase */
+		   ECHOK |    /* disable echo newline after kill */
+		   ECHOKE |   /* disable visual kill with bs-sp-bs */
+		   ECHONL |   /* disable echo nl when echo off */
+		   ISIG |            /* disable tty-generated signals */
+		   IEXTEN);   /* disable extended input processing */
   
   tio.c_cflag |= CS8;         /* enable eight bit chars */
   tio.c_cflag &= ~PARENB;     /* disable input parity check */
@@ -58,8 +58,8 @@ int init()
 
 
   tty_fd=open("/dev/ttyUSB0", O_RDWR);      
-  cfsetospeed(&tio,B9600);            // 115200 baud
-  cfsetispeed(&tio,B9600);            // 115200 baud
+  cfsetospeed(&tio,B115200);            // 115200 baud
+  cfsetispeed(&tio,B115200);            // 115200 baud
  
   if (tcsetattr(tty_fd, TCSANOW, &tio) < 0)
     {
