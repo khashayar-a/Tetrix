@@ -101,10 +101,12 @@ float heading()
   char value[128][128];
   char euler[128][128];
   char temp = 'a';
-  float d = 0.0;
-  float x,y,z;
-
-  write(tty_fd, ":37\n", 4);
+  float x, y, z, w; // quaternion
+  float yaw, pitch, roll; // euler angles
+  float heading, attitude, bank;
+  
+  
+  write(tty_fd, ":0\n", 4);
   usleep(10*1000);
 
   for(int i = 0;;i++)
@@ -117,35 +119,41 @@ float heading()
 	  }else{	
 	    value[i][j] = temp;
 	  }
-	} d;
+	}
       if(temp == 10)
 	{
 	  break;
 	}
     }
-  
-  x = atof(value[6]);
-  z = atof(value[7]);
-  y = atof(value[8]);
-  
-  if(y>0)
-    {
-      d = (M_PI / 4) - atan(x/y);
-    }
-  if(y<0)
-    {
-      d = (M_PI / 4 * 3) - atan(x/y);
-    } 
-  if(y==0)
-    { 
-      if(x<0)
-	{
-	  d = M_PI;
-	}
-      else
-	{
-	  d = 0.0;
-	}
-    }
-  return d;
+
+  x = atof(value[0]);
+  y = atof(value[1]);
+  z = atof(value[2]);
+  w = atof(value[3]);
+
+  double test = x*y + z*w;
+  if (test > 0.499) { // singularity at north pole
+    heading = 2 * atan2(x,w);
+    attitude = M_PI/2;
+    bank = 0;
+  }
+  if (test < -0.499) { // singularity at south pole
+    heading = -2 * atan2(x,w);
+    attitude = - M_PI/2;
+    bank = 0;
+  }else{
+    double sqx = x*x;
+    double sqy = y*y;
+    double sqz = z*z;
+    heading = atan2(2*y*w - 2*x*z , 1 - 2*sqy - 2*sqz);
+    attitude = asin(2*test);
+    bank = atan2(2*x*w - 2*y*z , 1 - 2*sqx - 2*sqz);
+  }
+    
+
+
+  printf("Heading: %f \n", heading);
+
+  return heading;
+
 }
