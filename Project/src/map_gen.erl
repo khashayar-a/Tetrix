@@ -7,7 +7,7 @@
 -compile(export_all).
 
 %% API
--export([start_link/0, node_ahead/1, add_frame/3, road_side/0]).
+-export([start_link/0, node_ahead/2, add_frame/4, road_side/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -24,13 +24,16 @@ init([]) ->
     say("init", []),
     
     {ok, ID} = ets:file2tab("include/undistort.txt"),
-    %%Camera_Matrix = read_cm_file("include/camera_matrix.txt"),
+    
+    %% ets:new(dash_lines, [set, named_table]),
+    ets:file2tab("include/Map.txt"),
+    %% Dummy values for the state 
+    Car_Pos =  vehicle_data:car_position(),
+    Car_Heading = vehicle_data:car_heading(),
+    Dashes_Ahead = map_functions:get_dashes_ahead(Car_Pos, Car_Heading),
 
-    ets:new(dash_lines, [set, named_table]),
-
-    % Dummy values for the state 
     {ok, #state{road_side = right, node_ahead = {{0,0},{0,0},{0,0}},
-		matrix_id = ID , mode = start, debug = on}}.
+		matrix_id = ID , mode = following, debug = on, last_dashes = Dashes_Ahead}}.
 
 %%--------------------------------------------------------------------
 % API Function Definitions 
@@ -43,19 +46,19 @@ start_link() ->
 
 % @doc
 % Argument is a tuple containing X and Y coords, i.e. Car_Pos = {5,6}
-node_ahead(Car_Pos) ->
+node_ahead(Car_Pos , Car_Heading) ->
     gen_server:call(
       ?SERVER,
-      {node_ahead, Car_Pos}).
+      {node_ahead, Car_Pos, Car_Heading}).
 
 
 % @doc
 % Adds frame data from image processing. Arguments are Points detected, and Car
 % position 
-add_frame(Points, Lane_ID, Car_Pos) ->
+add_frame(Points, Lane_ID, Car_Pos, Time) ->
     gen_server:cast(
       ?SERVER,
-      {add_frame, {{Points, Lane_ID}, Car_Pos}}).
+      {add_frame, {{Points, Lane_ID}, Car_Pos}, Time}).
 
 debug(N) ->
     gen_server:cast(?SERVER, {debug, N}).
@@ -70,7 +73,7 @@ save_tab() ->
 
 write_tab(N) ->
     {ok, Log}  = file:open("savedtab" , [read, write]),
-    T = map_functions: separate(ets:tab2list(dash_lines), [], N),
+    T = map_functions:separate(ets:tab2list(dash_lines), [], N),
     io:fwrite(Log, "~p~n" , [T]),
     file:close(Log).
 
@@ -81,10 +84,12 @@ last_dashes() ->
 % gen_server Function Definitions
 %%--------------------------------------------------------------------
 
-handle_call({node_ahead,{CarX,CarY}}, _From, State) ->
+handle_call({node_ahead,{CarX,CarY} , Heading}, _From, State) ->
     % TODO: generate node ahead with {X,Y} values, using dummy values
     %% query ets for node ahead
-    Reply = State#state.node_ahead,
+    [D1,D2,D3|_] = State#state.last_dashes,
+    
+    Reply = map_functions:get_nodes_ahead([D1,D2,D3] , []),
     {reply, Reply, State};
 
 handle_call(road_side, _From, State) ->
@@ -209,7 +214,7 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}},
 
 
 
-handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}}, 
+handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}} , Time}, 
 	    State = #state{mode = start}) ->
     
     Temp_Dashes = map_functions:translate_dashes(State#state.matrix_id, 
@@ -223,6 +228,65 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}},
 			  debug = on}};
 
 
+handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}, {Pic,Time}}, 
+	    State = #state{mode = following}) ->
+    StartTime = erlang:now(),
+    
+    Temp_Dashes = map_functions:translate_dashes(State#state.matrix_id, 
+						 Dashes, {Car_Pos, Car_Heading}, []),
+    
+    Correction = map_functions:calculate_correct_pos(Temp_Dashes , State#state.last_dashes),
+    
+    case Correction of 
+	not_found ->
+	    case State#state.debug of
+		on ->
+		    io:format("Correction NOT FOUND : ~p~n", [Temp_Dashes]);	
+		_ ->
+		    ok
+	    end,
+	    Dashes_Ahead = State#state.last_dashes;
+	{Dashes_Needed, Corresponding_Dash, {Offset, Delta_Angle}} ->
+
+
+	    case State#state.debug of
+		on ->
+		    io:format("Correction FOUND : ~p~n", [Correction]);	
+		_ ->
+		    ok
+	    end,
+	    Movement = map_functions:getDistance({0,0}, Offset),
+	    case Movement > -1 of
+		false ->
+		    Dashes_Ahead = State#state.last_dashes;
+		true ->
+		    New_Car_Pos = map_functions:move_point(Car_Pos, 
+							   {Corresponding_Dash#dash_line.center_point,
+							    {Offset,Delta_Angle}}),
+		    New_Car_Heading = Car_Heading + Delta_Angle,
+%%		    Dashes_Ahead = map_functions:get_dashes_ahead(New_Car_Pos, New_Car_Heading),
+		    Dashes_Ahead = map_functions:get_dashes_ahead(5, 
+								  Corresponding_Dash#dash_line.center_point),
+		    case Corresponding_Dash#dash_line.dash_before of 
+			undef ->
+			    NodeList = 
+				map_functions:get_dashes_ahead(3, 
+							       Corresponding_Dash#dash_line.center_point);
+			Before ->
+			    NodeList = map_functions:get_dashes_ahead(3, Before)
+		    end,
+		    
+		    car_ai:start(NodeList, {Pic, Time}),
+%%		    DiffTime = diff_time(Time, erlang:now()),
+%%		    ThisTime = diff_time(StartTime, erlang:now()),
+%%		    io:format("Picture : ~p -> Position ~p -> THIS : ~p~n", [Pic, DiffTime, ThisTime]),    
+		    gen_server:cast(vehicle_data, 
+				    {correct_position, New_Car_Pos , New_Car_Heading})
+	    end
+    end,
+    {noreply, State#state{mode = following, last_dashes = Dashes_Ahead,
+			  debug = off}};	
+		    
 
     %% query ets to get closest dash to each
 
@@ -303,3 +367,7 @@ clear_far(Car_Pos, [Dash |T] , Buff) ->
 clear_far(_,[],Buff) ->
     Buff.
 	
+
+
+diff_time({_,S1,MiS1},{_,S2,MiS2}) -> 
+    ((S2-S1) * 1000000) + (MiS2 - MiS1).

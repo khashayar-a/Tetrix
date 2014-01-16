@@ -1,6 +1,6 @@
 -module(image_proc).
 
--export([start/0, init/1, process_image/0]).
+-export([start/0, init/2, process_image/0]).
 
 -define(SERVER, ?MODULE).
 
@@ -12,7 +12,8 @@
 
 start() ->
     State = 0,
-    Pid = spawn(?SERVER, init, [State]),
+    Time = erlang:now(),
+    Pid = spawn(?SERVER, init, [State, Time]),
     {ok, Pid}.
 
 process_image() ->
@@ -25,17 +26,17 @@ process_image() ->
 
 %% @doc
 %% Starts the module
-init(State) ->
+init(State, Time) ->
     %% initialize 
     io:format("~p~n",[imgproc_nif:init()]),
     say("init", []),
-    process(State).
+    process(State, Time).
 
 %%--------------------------------------------------------------------
 %% Internal functions Definitions 
 %%--------------------------------------------------------------------
 
-process(State) ->
+process(State, Time) ->
     %% get car position vehicle_data
     Car_Pos = vehicle_data:car_position(),
     Car_Heading = vehicle_data:car_heading(),
@@ -52,17 +53,26 @@ process(State) ->
 		not_found ->
      		    not_found;
 		_ ->
+%%		    DiffTime = diff_time(Time, erlang:now()),
+%%		    io:format("IMAGE ~p : ~p ~n", [State, DiffTime]),    
 		    %%ok
-		    map_gen:add_frame(Processed, ?InputLaneD , {Car_Pos, Car_Tail, Car_Heading })
+		    map_gen:add_frame(Processed, ?InputLaneD , 
+				      {Car_Pos, Car_Tail, Car_Heading }, {State,Time})
 	     end;
 	_ ->
 %%	    io:format("After getpic faile~n",[]),
 	    not_found
     end,
     
-    timer:sleep(30),
-    process(State+1).
+
+    timer:sleep(17),
+
+    process(State+1, erlang:now()).
 
 %% Console print outs for server actions (init, terminate, etc) 
 say(Format, Data) ->
     io:format("~p:~p: ~s~n", [?MODULE, self(), io_lib:format(Format, Data)]).
+
+
+diff_time({_,_,MiS1},{_,_,MiS2}) -> 
+    MiS2 - MiS1.

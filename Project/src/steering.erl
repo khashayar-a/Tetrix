@@ -121,7 +121,7 @@ getDistance({X1,Y1} , {X2,Y2}) ->
     math:sqrt(math:pow(Y2-Y1,2) + math:pow(X2-X1,2)).
 
 local_to_global({CarX, CarY}, Temp_CarAng, {CoordXRaw, CoordYRaw}) ->
-    CarAng = Temp_CarAng - (math:pi() /4),
+    CarAng = Temp_CarAng, %%- (math:pi() /2),
     CoordXin = CoordXRaw ,%%+ 4,
     CoordYin = CoordYRaw ,%%+ (-67),
     CoordXZero = round(CoordXin * 100000) == 0,

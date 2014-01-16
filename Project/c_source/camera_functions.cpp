@@ -30,6 +30,20 @@ bool init_camera()
   is_SetColorMode (hCam, IS_CM_MONO8);
   int pnCol , pnColMode;
   is_GetColorDepth(hCam, &pnCol , &pnColMode);
+  //  char buffer[64];
+  // is_ReadEEPROM(hCam, 0x00, buffer, 64);
+  // is_SetGamma(hCam, 0);
+  // is_SetHWGainFactor(hCam, IS_SET_MASTER_GAIN_FACTOR, 100);
+  is_SetGainBoost(hCam, IS_SET_GAINBOOST_ON);
+  //  int nOffset = 0;
+  // is_BlackLevel(hCam, IS_BLACKLEVEL_CMD_SET_OFFSET, (void*) &nOffset, sizeof(nOffset));
+  double newFPS;
+  is_SetFrameRate(hCam , 80, &newFPS);
+  cout << "FPS SET TO " << newFPS << endl;
+  uint nRatio = 22;
+  is_Exposure(hCam, IS_EXPOSURE_CMD_SET_EXPOSURE, (void*) &nRatio, sizeof(nRatio));
+  // uint nEdge = 4;
+  //  is_EdgeEnhancement(hCam, IS_EDGE_ENHANCEMENT_CMD_SET, (void*) &nEdge, sizeof(nEdge));
 
   is_CaptureVideo(hCam, IS_WAIT);
 

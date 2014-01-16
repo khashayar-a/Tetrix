@@ -1,5 +1,7 @@
 -module(map_functions).
 
+-include("../include/offsetCalculation.hrl").
+
 -record(dash_line, {center_point, box, points, area, dash_before, dash_after}).
 
 -compile(export_all).
@@ -104,7 +106,7 @@ calculate_correct_pos([Dash| T], Last_Dashes) ->
 	    Angle2 = rect_angle(Corresponding_Dash#dash_line.box),
 	    Delta_Angle = Angle2 - Angle1, %%steering:normalized((Angle2 - Angle1)),
 	    Length = get_length(Dash#dash_line.points),
-	    case {Length > 150 , Length < 250 } of
+	    case {Length > 190 , Length < 250 } of
 		{true, true} ->
 		    {[Dash|T] , Corresponding_Dash, {Offset, Delta_Angle}};
 		_ ->
@@ -124,7 +126,7 @@ calculate_estimated_correction([Dash| T] , Estimated_Dashes) ->
 	    Angle2 = rect_angle(Corresponding_Dash#dash_line.box),
 	    Delta_Angle = Angle2 -  Angle1, %% steering:normalized((Angle2 - Angle1)),
 	    Length = get_length(Dash#dash_line.points),
-	    case {Length > 150 , Length < 250 %%,
+	    case {Length > 190 , Length < 250 %%,
 		 %% Delta_Angle < (math:pi() / 180 * 25), 
 		 %% Delta_Angle > (math:pi() / 180 * -25)
 		 } of
@@ -326,6 +328,36 @@ get_last_dashes(N, Last) ->
     end.
 
 
+get_dashes_ahead({CarX, CarY}, Heading) ->
+    Dashes = ets:select(dash_lines, map_functions:match_spec(CarX, CarY, 600)),
+    get_dashes_ahead(Dashes , {{CarX, CarY}, Heading});
+get_dashes_ahead([], _) ->
+    io:format("FUCK MY LIFE NOTHING IS IN FRONT~n", []);
+get_dashes_ahead([{_, Dash} | T], {Position, Heading}) ->
+    Angle = (Heading - steering:getAng(Position, Dash)) * 180 / math:pi(),
+    case {Angle < 90, Angle > -90} of
+	{true, true} ->
+	    get_dashes_ahead(5, Dash);
+	_ ->
+	    get_dashes_ahead(T, {Position, Heading})
+    end;
+get_dashes_ahead(0, _) ->
+    [];
+get_dashes_ahead(N, Dash) ->
+     case ets:lookup(dash_lines, Dash) of
+	[] ->
+	    [];
+	[{K,V}] ->
+	    case V#dash_line.dash_after of
+		undef ->
+		    [K];
+		L ->
+		    [K| get_dashes_ahead(N-1, L)]
+	    end
+     end.
+
+
+
 
 
     %% case length(List) > 5 of
@@ -438,3 +470,13 @@ generate_estimated_dashes([P1,P2,P3]) ->
     add_dashes(P1,P2,P3,8);
 generate_estimated_dashes(_) ->
     [].
+
+
+
+get_nodes_ahead([Head| T], Buff) ->
+    Dash = ets_lookup(Head),
+    {ok,[OP]} = offsetCalculation:calculate_offset_list(?InputLaneD, ?LaneAdjacent, 
+							Dash#dash_line.points),   
+    get_nodes_ahead(T, Buff ++ [OP]);
+get_nodes_ahead([], Buff) ->
+    Buff.

@@ -25,8 +25,8 @@ init([]) ->
 %%	{_,X,Y} ->
 %%	    Position = {X,Y}
 %%    end,
-    Position = {0,0},
-    Heading = 0, %gen_server:call({hardware, ?RPI} , initial_heading),
+    Position = {100,200},
+    Heading = math:pi() / 2, %%0, %gen_server:call({hardware, ?RPI} , initial_heading),
     Tail_Position = calculate_tail(Position, Heading), 
     {ok, #state{car_position = Position,  heading = Heading, car_tail = Tail_Position,  
 		estimated_car_position = Position , estimated_heading = Heading, 
@@ -98,7 +98,7 @@ handle_cast({update_position, {PosX, PosY, DeltaHeading}}, State) ->
     {OldPosX, OldPosY} = State#state.estimated_car_position,
     Oldheading = State#state.estimated_heading,
     %% io:format("New Heading: ~p~n", [{Oldheading , DeltaHeading}]),
-   
+    io:format("UPDATE POS: ~p~n", [{PosX, PosY, DeltaHeading}]),
     New_Heading = normalized(Oldheading + DeltaHeading),
     New_CarPos = {OldPosX + PosX, OldPosY + PosY},
     New_CarTail = calculate_tail(New_CarPos, New_Heading),
