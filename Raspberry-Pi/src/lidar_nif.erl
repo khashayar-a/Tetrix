@@ -23,6 +23,13 @@ write([H|T],[X|S]) ->
     file:write_file("/home/pi/data.txt", io_lib:fwrite("~p~n", [{H,X}]), [append]),
     write(T,S).
 
+loop() ->
+    {X,Y} = get_lidar(),
+    io:format("X: ~p~n", [X]),
+    io:format("Y: ~p~n", [Y]),
+    timer:sleep(100),
+    loop().
+
 get_lidar() ->
     ?NIF_STUB.
 

@@ -171,11 +171,15 @@ void* lidar_thread(void* env)
   float angle_rad;
   float c, s;
   double x, y;
+
+  int test = 0;
+
   while(1)
     {
+      
       startbyte = 0;
       read(tty_fd, &startbyte, 1);
-      
+      usleep(0.01);
       if(startbyte == 0xFA)
 	{
 	  read(tty_fd, &index, 1);
@@ -194,6 +198,7 @@ void* lidar_thread(void* env)
 	  for(int i = 0; i < 2; i++)
 	    {
 	      read(tty_fd, &data[i], 1);
+	      //usleep(1);
 	      arr[2+i] = data[i];
 	    }
 	  
@@ -202,6 +207,7 @@ void* lidar_thread(void* env)
 	  for(int i = 0; i < 4; i++)
 	    {
 	      read(tty_fd, &data[i], 1);
+	      //usleep(1);
 	      arr[4+i] = data[i];
 	    }
 	  flag0 = (data[1] & 0x80) >> 7;
@@ -210,6 +216,7 @@ void* lidar_thread(void* env)
 	  for(int i = 0; i < 4; i++)
 	    {
 	      read(tty_fd, &data[i], 1);
+	      //usleep(1);
 	      arr[8+i] = data[i];
 	    }
 	  flag1 = (data[1] & 0x80) >> 7;
@@ -218,6 +225,7 @@ void* lidar_thread(void* env)
 	  for(int i = 0; i < 4; i++)
 	    {
 	      read(tty_fd, &data[i], 1);
+	      // usleep(1);
 	      arr[12+i] = data[i];
 	    }
 	  flag2 = (data[1] & 0x80) >> 7;
@@ -226,6 +234,7 @@ void* lidar_thread(void* env)
 	  for(int i = 0; i < 4; i++)
 	    {
 	      read(tty_fd, &data[i], 1);
+	      //usleep(1);
 	      arr[16+i] = data[i];
 	    }
 	  flag3 = (data[1] & 0x80) >> 7;
@@ -234,19 +243,23 @@ void* lidar_thread(void* env)
 	  for(int i = 0; i < 2; i++)
 	    {
 	      read(tty_fd, &check[i], 1);	      
+	      //usleep(1);
 	    } 
 	  
 	  checksum = check[0] | check[1] << 8;
 
 	  if(checksum == get_check_sum(arr))
 	    {
-	      //printf("Flags: %d %d %d %d", flag0, flag1, flag2, flag3);
+	      //	      printf("times checksum is valid: %d :::: checksum: %d\n", test); 
+	      //test++;
+
+	      //printf("Flags: 1: %d --- 2: %d --- 3: %d --- 4: %d \n", flag0, flag1, flag2, flag3);
 	      
 	      if(point_vector.size() > 716)
 		{
-		  mtx.lock();
+		  //mtx.lock();
 		  point_vector.erase(point_vector.begin(), point_vector.begin()+360);
-		  mtx.unlock();
+		  //mtx.unlock();
 		}
 	      if(flag0 == 0 && dist0 <= 3000)
 		{
@@ -343,9 +356,9 @@ static ERL_NIF_TERM get_lidar(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
       lidar_xx[count] = enif_make_int(env, (int) t2g.x);
       lidar_yy[count] = enif_make_int(env, (int) t2g.y);
 
-      mtx.lock();
+      //mtx.lock();
       point_vector.erase(point_vector.begin());
-      mtx.unlock();
+      //mtx.unlock();
       count++;
     }
   cout << "After - count: " << count <<  endl;
