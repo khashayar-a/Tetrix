@@ -240,13 +240,13 @@ void* lidar_thread(void* env)
 
 	  if(checksum == get_check_sum(arr))
 	    {
-	      //printf("Flags: %d %d %d %d", flag0, flag1, flag2, flag3);
+	      //printf("Flags: %d %d %d %d\n", flag0, flag1, flag2, flag3);
 	      
 	      if(point_vector.size() > 716)
 		{
-		  mtx.lock();
+		  //mtx.lock();
 		  point_vector.erase(point_vector.begin(), point_vector.begin()+360);
-		  mtx.unlock();
+		  //mtx.unlock();
 		}
 	      if(flag0 == 0 && dist0 <= 3000)
 		{
@@ -343,9 +343,9 @@ static ERL_NIF_TERM get_lidar(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
       lidar_xx[count] = enif_make_int(env, (int) t2g.x);
       lidar_yy[count] = enif_make_int(env, (int) t2g.y);
 
-      mtx.lock();
+      //mtx.lock();
       point_vector.erase(point_vector.begin());
-      mtx.unlock();
+      //mtx.unlock();
       count++;
     }
   cout << "After - count: " << count <<  endl;
