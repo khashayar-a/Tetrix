@@ -89,7 +89,7 @@ handle_call({node_ahead,{CarX,CarY} , Heading}, _From, State) ->
     %% query ets for node ahead
 %%    [D1,D2,D3|_] = State#state.last_dashes,
 
-    case map_functions:find_closest_dash_ahead({CarX,CarY}, 600) of
+    case map_functions:find_closest_dash_ahead({CarX,CarY}, 1000) of
 	not_found ->
 	    Reply = not_found;
 	Dash ->
@@ -241,7 +241,7 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}} , 
 			  debug = on}};
 
 
-handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}, {Pic,Time}}, 
+handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos = {CarX,CarY}, Car_Tail, Car_Heading}}, {Pic,Time}}, 
 	    State = #state{mode = following}) ->
     StartTime = erlang:now(),
     
@@ -259,7 +259,7 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}, {
 		    ok
 	    end,
 	    Dashes_Ahead = State#state.last_dashes;
-	{Dashes_Needed, Corresponding_Dash, {Offset, Delta_Angle}} ->
+	{Dashes_Needed, Corresponding_Dash, {Offset = {Ox,Oy}, Delta_Angle}} ->
 
 
 	    case State#state.debug of
@@ -273,10 +273,10 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}, {
 		false ->
 		    Dashes_Ahead = State#state.last_dashes;
 		true ->
-		    New_Car_Pos = map_functions:move_point(Car_Pos, 
-							   {Corresponding_Dash#dash_line.center_point,
-							    {Offset,Delta_Angle}}),
-		    New_Car_Heading = Car_Heading + Delta_Angle,
+		    New_Car_Pos = {CarX+Ox,CarY+Oy},%% map_functions:move_point(Car_Pos, 
+		    %%			   {Corresponding_Dash#dash_line.center_point,
+		    %%				    {Offset,Delta_Angle}}),
+		    New_Car_Heading = Car_Heading +  0 ,%%Delta_Angle,
 %%		    Dashes_Ahead = map_functions:get_dashes_ahead(New_Car_Pos, New_Car_Heading),
 		    Dashes_Ahead = map_functions:get_dashes_ahead(5, 
 								  Corresponding_Dash#dash_line.center_point),

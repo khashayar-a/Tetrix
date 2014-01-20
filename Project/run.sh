@@ -12,6 +12,7 @@ if [ $# -eq 0 ]; then
 	    #sudo  ./Monitor/init_monitor &	    #./Monitor/init_monitor &
 	    echo "Activated Tetrix Monitor"
     fi
+    sudo sh kill_erlport.sh
     sudo erl -pa ebin/ -env ERL_LIBS erlport/ -name node1@192.168.3.160 -setcookie tetrix
 else
     if [ $1 = clean ]; then

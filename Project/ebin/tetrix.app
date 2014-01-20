@@ -5,8 +5,10 @@
               {applications,[kernel,stdlib]},
               {mod,{tetrix_app,[]}},
               {env,[]},
-              {modules,[car_ai,cunit,cunit_nif,currentPos,hal_nif,
-                        hardware_data,hidnif,image_proc,imgproc_nif,
-                        map_functions,map_gen,offsetCalculation,position_calc,
-                        scheduler,steering,tetrix_app,tetrix_status,
-                        tetrix_sup,vehicle_data]}]}.
+              {modules,[car_ai,cunit,cunit_nif,currentPos,erlport,
+                        erlport_options,erlport_utils,hal_nif,hardware_data,
+                        hidnif,image_proc,imgproc_nif,map_functions,map_gen,
+                        offsetCalculation,pcbnif,position_calc,python,
+                        python_options,ruby,ruby_options,scheduler,steering,
+                        tetrix_app,tetrix_status,tetrix_sup,three_space_nif,
+                        three_space_reader,vehicle_data]}]}.

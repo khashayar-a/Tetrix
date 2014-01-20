@@ -26,8 +26,12 @@ start() ->
 
 init() ->
     object_detection:start_link(),
+    loop().
+
+loop() ->
+    timer:sleep(1),
     fetch_data(),
-    ok.
+    loop().
 
 %%--------------------------------------------------------------------
 % Internal functions Definitions 

@@ -115,6 +115,7 @@ handle_cast({update_sensor, Data}, State) ->
     {noreply, State#state{sensor_data = Data }};
 
 handle_cast({correct_position, Position , Heading}, State) ->
+    io:format("Position Changed from ~p To ~p ~n", [State#state.estimated_car_position, Position]),
     {noreply, State#state{car_position = Position , %%heading = Heading, 
 			  car_tail = calculate_tail(Position , Heading),
 			  %%estimated_heading = normalized(Heading),
@@ -169,7 +170,7 @@ calculate_tail({X,Y} , Heading) ->
 
 
 calculate_pos(NewHal, CurrHeading)->
-    DeltaDistance = (NewHal)*(5.81),
+    DeltaDistance = (NewHal)*(5.25),
     PosX = DeltaDistance * ( math:cos( CurrHeading )),
     PosY = DeltaDistance * ( math:sin( CurrHeading )),
     {PosX, PosY}.

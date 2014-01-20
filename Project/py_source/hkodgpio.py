@@ -11,6 +11,7 @@ import os, mmap, sys, time
 from ctypes import *
 from hkgpiolib import *
 from copy import deepcopy
+from time import sleep
 
 import datetime as dt
 import threading
@@ -248,6 +249,7 @@ def read_3_pins():
   #pin31a = 0
 	global run
 	while run:
+		sleep(0.001)
 		pinsNew[0]= read_gpio(mm, gpio_addresses['pin27'])
 		pinsNew[1]= read_gpio(mm, gpio_addresses['pin31'])
 		pinsNew[2]= read_gpio(mm, gpio_addresses['pin29'])
@@ -265,6 +267,7 @@ def read_3_pins():
 			if valid_readings(pinsNew):
 				movement = movement + calculate_movement(pins_state(pins), pins_state(pinsNew))
 				pins = deepcopy(pinsNew)
+				print 'MOVEMENT : ', movement
         #pins = pinsNew
         #pins[0] = pinsNew[0]
         #pins[1] = pinsNew[1]
@@ -353,4 +356,4 @@ def get_movement():
 	movement = 0
 	return return_value
 
-# read_3_pins()
+#read_3_pins()
