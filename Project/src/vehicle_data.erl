@@ -12,7 +12,7 @@
 -define(SERVER, ?MODULE). 
 -define(RPI, 'node2@192.168.3.150').
 
--record(state, {car_position, heading , car_tail, 
+-record(state, {car_position, heading , car_tail, mode = init, initial_heading,
 	        estimated_car_position , estimated_heading , estimated_car_tail,
 		sensor_data}).
 
@@ -115,11 +115,20 @@ handle_cast({update_sensor, Data}, State) ->
     {noreply, State#state{sensor_data = Data }};
 
 handle_cast({correct_position, Position , Heading}, State) ->
-    {noreply, State#state{car_position = Position , heading = Heading, 
+    {noreply, State#state{car_position = Position , %%heading = Heading, 
 			  car_tail = calculate_tail(Position , Heading),
-			  estimated_heading = normalized(Heading),
+			  %%estimated_heading = normalized(Heading),
 			  estimated_car_position = Position, 
 			  estimated_car_tail = calculate_tail(Position , Heading)}};
+handle_cast({angle, Heading}, State) ->
+    case State#state.mode of
+	init ->
+	    Initial = math:pi()/2 - Heading,
+	    {noreply, State#state{estimated_heading = Heading + Initial, 
+				  initial_heading = Initial, mode = run }};
+	_ ->
+	    {noreply, State#state{estimated_heading = Heading + State#state.initial_heading }}
+    end;	    
 
 %%, estimated_car_position = Position
 handle_cast(_Msg, State) ->
@@ -159,16 +168,10 @@ calculate_tail({X,Y} , Heading) ->
     {Tx,Ty}.
 
 
-calculate_pos(DeltaHal, CurrHeading)->
-    NewHal = (DeltaHal)*(1000/57),
-    case (NewHal < 0) of
-        true ->
-	    DeltaDistance = NewHal + 1000;
-	false ->
-            DeltaDistance = NewHal
-    end,
+calculate_pos(NewHal, CurrHeading)->
+    DeltaDistance = (NewHal)*(5.81),
     PosX = DeltaDistance * ( math:cos( CurrHeading )),
-    PosY = DeltaDistance * ( math:sin( (CurrHeading * math:pi()/180) )),
+    PosY = DeltaDistance * ( math:sin( CurrHeading )),
     {PosX, PosY}.
 
 normalized(Angle)->

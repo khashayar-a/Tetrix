@@ -160,9 +160,9 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     }
   else 
     {
-      stringstream ss;//create a stringstream
-      ss << "/home/tetrix/images/image" << image_counter << ".jpg" ;//add number to the stream
-      cvSaveImage(ss.str().c_str() , gray);
+      // stringstream ss;//create a stringstream
+      // ss << "/home/tetrix/images/image" << image_counter << ".jpg" ;//add number to the stream
+      // cvSaveImage(ss.str().c_str() , gray);
     }
   
   if(image_counter < 10)
@@ -252,6 +252,9 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
   cvReleaseImage(&gray);
   gray = NULL;
+  
+  if(lanes.size() < 2)
+    return enif_make_atom(env, "not_found");
 
   unsigned int lanes_size = lanes.size();
   for (unsigned int i = 0; i < lanes.size(); i++) {

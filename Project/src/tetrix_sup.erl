@@ -28,11 +28,13 @@ init([]) ->
     %supervisor:start_link(car_ai, ?CHILD(car_ai, worker)),
     {ok, { {one_for_one,5,10},[?CHILD(vehicle_data, supervisor),
 			       ?CHILD(map_gen, supervisor), 
-			       ?CHILD_W(tetrix_status, worker), 
+			       ?CHILD_W(tetrix_status, worker),
+			       ?CHILD_W(three_space_reader, worker),
+			       ?CHILD_W(position_calc, worker),
 %%			       ?CHILD(cunit, supervisor), 
 %%			       ?CHILD_W(currentPos, worker),
 %%			       ?CHILD_W(terminal, worker),
-%%			       ?CHILD_W(car_ai, worker),
+			       ?CHILD_W(car_ai, worker),
 			       ?CHILD_W(image_proc, worker) 
 			       ]}}.
 %            ?CHILD_W(car_ai, worker) , ?CHILD(hardware_data, worker),

@@ -1,7 +1,7 @@
 -module(position_calc).
 
 %% API
--export([start_link/0, init/1, calculate_car_position/0]).
+-export([start/0, init/0, calculate_car_position/0]).
 
 -define(SERVER, ?MODULE).
 
@@ -11,9 +11,8 @@
 
 % @doc
 % Starts the module
-start_link() ->
-    State = [],
-    Pid = spawn(?SERVER, init, [State]),
+start() ->
+    Pid = spawn(?SERVER, init, []),
     register(?SERVER, Pid),
     {ok, Pid}.
 
@@ -27,27 +26,28 @@ calculate_car_position() ->
 % Callback Definitions 
 %%--------------------------------------------------------------------
 
-init(State) ->
+init() ->
+    {ok, P} = python:start([{python_path, "/home/tetrix/Tetrix/Project/py_source"},
+			    {python, "python"}]),
+    python:call(P, hkodgpio, start_it, []),
     %% initialize 
     say("init", []),
-    locate(State).
+    locate(P).
 
 %%--------------------------------------------------------------------
 % Internal functions Definitions 
 %%--------------------------------------------------------------------
 
-locate(State) ->
-    receive 
-        calculate_car_position ->    
-            %% TODO: read mouse or other sensor data
-
-            %% TODO: calculate car position
-
-            %% send position to vehicle data
-            %% TODO: Dummy values
-            vehicle_data:update_position({4,5})
+locate(P) ->
+    case python:call(P, hkodgpio, get_movement, []) of
+	0 ->
+	    ok;
+	Movement ->
+	    io:format("HAL READ : ~p~n",[Movement]),
+	    gen_server:cast(vehicle_data, {hal_moved, Movement})
     end,
-    locate(State).
+    timer:sleep(10),
+    locate(P).
 
 % Console print outs for server actions (init, terminate, etc) 
 say(Format, Data) ->

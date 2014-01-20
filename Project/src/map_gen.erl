@@ -87,9 +87,22 @@ last_dashes() ->
 handle_call({node_ahead,{CarX,CarY} , Heading}, _From, State) ->
     % TODO: generate node ahead with {X,Y} values, using dummy values
     %% query ets for node ahead
-    [D1,D2,D3|_] = State#state.last_dashes,
-    
-    Reply = map_functions:get_nodes_ahead([D1,D2,D3] , []),
+%%    [D1,D2,D3|_] = State#state.last_dashes,
+
+    case map_functions:find_closest_dash_ahead({CarX,CarY}, 600) of
+	not_found ->
+	    Reply = not_found;
+	Dash ->
+	    case Dash#dash_line.dash_before of 
+		undef ->
+		    NodeList = 
+			map_functions:get_dashes_ahead(3, Dash#dash_line.center_point);
+		Before ->
+		    NodeList = map_functions:get_dashes_ahead(3, Before)
+	    end,
+	    io:format("DRIVING ON PATH OF THESE NODES :~p~n", [ NodeList]),
+	    Reply = map_functions:get_nodes_ahead(NodeList , [])
+    end,
     {reply, Reply, State};
 
 handle_call(road_side, _From, State) ->
@@ -267,16 +280,8 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}, {
 %%		    Dashes_Ahead = map_functions:get_dashes_ahead(New_Car_Pos, New_Car_Heading),
 		    Dashes_Ahead = map_functions:get_dashes_ahead(5, 
 								  Corresponding_Dash#dash_line.center_point),
-		    case Corresponding_Dash#dash_line.dash_before of 
-			undef ->
-			    NodeList = 
-				map_functions:get_dashes_ahead(3, 
-							       Corresponding_Dash#dash_line.center_point);
-			Before ->
-			    NodeList = map_functions:get_dashes_ahead(3, Before)
-		    end,
 		    
-		    car_ai:start(NodeList, {Pic, Time}),
+%%		    car_ai:start(NodeList, {Pic, Time}),
 %%		    DiffTime = diff_time(Time, erlang:now()),
 %%		    ThisTime = diff_time(StartTime, erlang:now()),
 %%		    io:format("Picture : ~p -> Position ~p -> THIS : ~p~n", [Pic, DiffTime, ThisTime]),    

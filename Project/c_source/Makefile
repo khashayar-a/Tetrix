@@ -31,7 +31,7 @@ carControl: $(OBJS)
 	$(MAKENIF)
 	g++ -fPIC -shared -o ../ebin/imgproc_nif.so imgproc_nif.cpp camera_functions.cpp -I../c_include/ -lopencv_core -lopencv_imgproc -lopencv_highgui -lueye_api
 	g++ -fPIC -shared -o ../ebin/hal_nif.so hal_nif.cpp hal_functions.cpp -I../c_include/ 
-
+	g++ -fPIC -shared -o ../ebin/three_space_nif.so three_space_nif.cpp three_space_functions.cpp -I../c_include
 
 
 $(COBJS): %.o: %.c

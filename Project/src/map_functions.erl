@@ -81,15 +81,15 @@ closest_in_radius(_, [] , {_, Dash}) ->
     ets_lookup(Dash).
 
 
-    %% MatchSpec = match_spec(CX,CY,Radius),
-    %% T = ets:select(dash_lines, MatchSpec),
-    %% case T of
-    %% 	[] ->
-    %% 	    not_found;
-    %% 	_ ->
-    %% 	    element(2,hd(ets:lookup(dash_lines, element(2,lists:min(T)))))
-    %% end.
-
+find_closest_dash_ahead({Cx,Cy}, Radius) ->
+    MatchSpec = match_spec(Cx,Cy,Radius),
+    T = ets:select(dash_lines, MatchSpec),
+    case T of
+	[] ->
+	    not_found;
+	_ ->
+     	    element(2,hd(ets:lookup(dash_lines, element(2,lists:min(T)))))
+    end.
 
 rect_angle({{X1,Y1},_,{X2,Y2},_}) ->
     math:atan2(Y2-Y1 , X2-X1).

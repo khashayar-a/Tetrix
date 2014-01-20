@@ -33,8 +33,8 @@ bool init_camera()
   //  char buffer[64];
   // is_ReadEEPROM(hCam, 0x00, buffer, 64);
   // is_SetGamma(hCam, 0);
-  // is_SetHWGainFactor(hCam, IS_SET_MASTER_GAIN_FACTOR, 100);
-  is_SetGainBoost(hCam, IS_SET_GAINBOOST_ON);
+  is_SetHWGainFactor(hCam, IS_SET_MASTER_GAIN_FACTOR, 350);
+  // is_SetGainBoost(hCam, IS_SET_GAINBOOST_ON);
   //  int nOffset = 0;
   // is_BlackLevel(hCam, IS_BLACKLEVEL_CMD_SET_OFFSET, (void*) &nOffset, sizeof(nOffset));
   double newFPS;
