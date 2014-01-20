@@ -15,7 +15,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3, get_data/0, check/2]).
+	 terminate/2, code_change/3, get_data/0]).
 
 -define(SERVER, ?MODULE).
 -define(NIF_STUB, exit(nif_library_not_loaded)).
@@ -66,16 +66,11 @@ get_data() ->
     {X,Y} = gen_server:call(?SERVER, get_data),
     store_data(X,Y).
 
-check(X,Y) ->
-    ets:lookup(object_data,{X,Y}).
-
 store_data([],[]) ->
     ok;
 
 store_data([X|Xs],[Y|Ys])->
-   %% io:format("HAHA X: ~p _ Y: ~p~n",[X,Y]),
-    ets:insert(object_data,{1,2}),
-   %% ets:insert(object_data,{{(round(X/10))*10,(round(Y/10))*10},{X,Y}}),
+    ets:insert(object_data,{{(round(X/10))*10,(round(Y/10))*10},{X,Y}}),
     store_data(Xs,Ys).
 	
 

@@ -179,7 +179,7 @@ void* lidar_thread(void* env)
       
       startbyte = 0;
       read(tty_fd, &startbyte, 1);
-      usleep(0.01);
+      usleep(1);
       if(startbyte == 0xFA)
 	{
 	  read(tty_fd, &index, 1);
@@ -346,7 +346,7 @@ static ERL_NIF_TERM get_lidar(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     {
       t = point_vector.front();
       
-      t2g = local_to_global(0, 0, 0, t.x, t.y);
+      t2g = local_to_global(argv[0], argv[1], argv[2], t.x, t.y);
       
       lidar_xx[count] = enif_make_int(env, (int) t2g.x);
       lidar_yy[count] = enif_make_int(env, (int) t2g.y);
