@@ -10,7 +10,7 @@ def main(argv):
     os.chdir(tetrix_path)
     
     if len(argv) == 0:
-   	    call(["erl", "-pa" ,"ebin/", "-name", "node2@192.168.3.160" , "-setcookie" ,"tetrix", "-noshell", "&"])  
+   	    call(["erl", "-pa" ,"ebin/", "-sname", "node2" , "-setcookie" ,"tetrix", "-noshell", "&"])  
     elif argv[0] == "compile":
         call(["./run.sh", "compile_erlang"]) 
     elif argv[0] == "clean":

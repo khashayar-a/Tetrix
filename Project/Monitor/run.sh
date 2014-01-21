@@ -4,7 +4,7 @@ if [ $# -eq 0 ]; then
     echo -e "\033[1m--> Starting Erlang Shell: \033[0m";
     echo -e "\033[1m-------------------------------------------------------------------------------- \033[0m"
     echo ""
-    sudo erl -pa ebin/ -sname node1 -setcookie nodes;
+    sudo erl -pa ebin/ -sname node1 -setcookie tetrix;
 else
     if [ $1 = clean ]; then
 	cd "ebin"

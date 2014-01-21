@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [ $# -eq 0 ]; then
     echo -e "\033[1m--> Starting Erlang Shell: \033[0m";
@@ -13,10 +13,10 @@ if [ $# -eq 0 ]; then
 	    echo "Activated Tetrix Monitor"
     fi
     sudo sh kill_erlport.sh
-    sudo erl -pa ebin/ -env ERL_LIBS erlport/ -name node1@192.168.3.160 -setcookie tetrix
+    sudo erl -pa ebin/ -env ERL_LIBS erlport/ -sname node1 -setcookie tetrix
 else
     if [ $1 = clean ]; then
-        ./Monitor/init_monitor clean
+        ./Monitor/init_monitor clean;
 	cd "c_source"
 	if make clean; then
 	    echo -e "\033[1mCleaning Binaries Complete ! \033[0m";
