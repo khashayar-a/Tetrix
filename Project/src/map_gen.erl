@@ -25,15 +25,18 @@ init([]) ->
     
     {ok, ID} = ets:file2tab("include/undistort.txt"),
     
-    %% ets:new(dash_lines, [set, named_table]),
-    ets:file2tab("include/Map.txt"),
+    ets:new(dash_lines, [set, named_table]),
+    %% ets:file2tab("include/Map.txt"),
     %% Dummy values for the state 
     Car_Pos =  vehicle_data:car_position(),
     Car_Heading = vehicle_data:car_heading(),
-    Dashes_Ahead = map_functions:get_dashes_ahead(Car_Pos, Car_Heading),
+    %% Dashes_Ahead = map_functions:get_dashes_ahead(Car_Pos, Car_Heading),
 
     {ok, #state{road_side = right, node_ahead = {{0,0},{0,0},{0,0}},
-		matrix_id = ID , mode = following, debug = on, last_dashes = Dashes_Ahead}}.
+		matrix_id = ID , mode = start, 
+%%		last_dashes = Dashes_Ahead ,
+		debug = on
+		}}.
 
 %%--------------------------------------------------------------------
 % API Function Definitions 
@@ -100,7 +103,7 @@ handle_call({node_ahead,{CarX,CarY} , Heading}, _From, State) ->
 		Before ->
 		    NodeList = map_functions:get_dashes_ahead(3, Before)
 	    end,
-	    io:format("DRIVING ON PATH OF THESE NODES :~p~n", [ NodeList]),
+	    io:format("HERE AT : ~p, ~p DRIVING ON PATH OF THESE NODES :~p~n", [ {CarX,CarY}, Heading, NodeList]),
 	    Reply = map_functions:get_nodes_ahead(NodeList , [])
     end,
     {reply, Reply, State};
@@ -124,7 +127,7 @@ handle_call(_Request, _From, State) ->
 
 %%--------------------------------------------------------------------
 
-handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}}, 
+handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos = {CarX,CarY}, Car_Tail, Car_Heading}}, Time}, 
 	    State = #state{mode = recording}) ->
     Temp_Dashes = map_functions:translate_dashes(State#state.matrix_id, 
 						 Dashes, {Car_Pos, Car_Heading}, []),
@@ -181,7 +184,7 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}},
 				    {correct_position, New_Car_Pos , New_Car_Heading})
 	    end;
 	
-	{Dashes_Needed, Corresponding_Dash, {Offset, Delta_Angle}} ->
+	{Dashes_Needed, Corresponding_Dash, {Offset = {Ox,Oy}, Delta_Angle}} ->
 	    Movement = map_functions:getDistance({0,0}, Offset),
 	    case Movement > 5 of
 		false ->
@@ -208,10 +211,11 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}}},
 		    end,
 		    map_functions:clean_ets_dashes(Corresponding_Dash#dash_line.center_point),
 		    map_functions:insert_dashes(Connected_Dashes),
+		    New_Car_Pos = {CarX+Ox,CarY+Oy},
 		    New_Car_Pos = map_functions:move_point(Car_Pos, 
 							   {Corresponding_Dash#dash_line.center_point,
 							    {Offset,Delta_Angle}}),
-		    New_Car_Heading = Car_Heading + Delta_Angle,
+		    New_Car_Heading = Car_Heading + 0,%%Delta_Angle,
 		    gen_server:cast(vehicle_data, 
 				    {correct_position, New_Car_Pos , New_Car_Heading}),
 		    case State#state.debug of

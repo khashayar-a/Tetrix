@@ -46,7 +46,7 @@ locate(P) ->
 	    io:format("HAL READ : ~p~n",[Movement]),
 	    gen_server:cast(vehicle_data, {hal_moved, Movement})
     end,
-    timer:sleep(10),
+    timer:sleep(1),
     locate(P).
 
 % Console print outs for server actions (init, terminate, etc) 

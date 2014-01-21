@@ -48,11 +48,12 @@ process(State, Time) ->
      	{ok, ImgRef} ->
 %%	    io:format("After getpic success~n",[]),
 	    Processed = imgproc_nif:process_pic(ImgRef, State),
-%%	    io:format("After processpic success ~n",[]),
+
 	    case Processed of
 		not_found ->
      		    not_found;
 		_ ->
+%%		    io:format("After processpic success ~n",[]),
 %%		    DiffTime = diff_time(Time, erlang:now()),
 %%		    io:format("IMAGE ~p : ~p ~n", [State, DiffTime]),    
 		    %%ok

@@ -25,6 +25,14 @@ init([]) ->
 %%	{_,X,Y} ->
 %%	    Position = {X,Y}
 %%    end,
+
+
+%%  Code for having vehicle data retrieve car position and heading from the
+%%  monitor
+%%
+%%  register(vehicle_data, self()),
+%%  {shell,   
+
     Position = {100,200},
     Heading = math:pi() / 2, %%0, %gen_server:call({hardware, ?RPI} , initial_heading),
     Tail_Position = calculate_tail(Position, Heading), 
@@ -68,6 +76,13 @@ update_sensor(Data) ->
     ?SERVER,
     {update_sensor, Data}).
 
+get_heading_POS_from_monitor() ->
+   {monitor_tetrix, node2@odroidu2 } ! {initial_POS_heading, self()},
+   receive
+      whoa ->   
+          ok
+   end.
+
 %%--------------------------------------------------------------------
 %% gen_server Function Definitions
 %%--------------------------------------------------------------------
@@ -106,7 +121,7 @@ handle_cast({update_position, {PosX, PosY, DeltaHeading}}, State) ->
 			  estimated_heading = New_Heading , 
 			  estimated_car_tail = New_CarTail}};
 handle_cast({hal_moved, Hal}, State) ->
-    {Dx,Dy} = calculate_pos(Hal, State#state.heading),
+    {Dx,Dy} = calculate_pos(Hal, State#state.estimated_heading),
     {X,Y} = State#state.estimated_car_position,
     Car_Tail = calculate_tail({X+Dx, Y+Dy}, State#state.heading),
     {noreply, State#state{estimated_car_position = {X+Dx, Y+Dy}, 

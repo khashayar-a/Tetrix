@@ -15,7 +15,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3, get_data/0]).
+	 terminate/2, code_change/3, get_data/0, match_spec/3, clean_ets/0]).
 
 -define(SERVER, ?MODULE).
 -define(NIF_STUB, exit(nif_library_not_loaded)).
@@ -64,6 +64,7 @@ init([]) ->
 
 get_data() ->
     List = gen_server:call(?SERVER, get_data),
+    clean_ets(),
     store_data(List).
 
 store_data([]) ->
@@ -73,7 +74,19 @@ store_data([{X,Y}|Tail])->
     ets:insert(object_data,{{(round(X/10))*10,(round(Y/10))*10},{X,Y}}),
     store_data(Tail).
 	
+clean_ets() ->
+    %{X,Y} = vehichle_data:car_position(),
+    ets:select_delete(object_data, match_spec(0,0,1000)).
 
+
+match_spec(Cx, Cy, R) ->    
+    [{{{'$1','$2'},'_'},
+      [{'<',{'+',{'*',{'-','$1',{const,Cx}},
+                  {'-','$1',{const,Cx}}},
+             {'*',{'-','$2',{const,Cy}},{'-','$2',{const,Cy}}}},
+        {'*',{const,R},{const,R}}}],
+      [true]}].
+	
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

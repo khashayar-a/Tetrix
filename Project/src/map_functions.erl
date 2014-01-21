@@ -106,7 +106,7 @@ calculate_correct_pos([Dash| T], Last_Dashes) ->
 	    Angle2 = rect_angle(Corresponding_Dash#dash_line.box),
 	    Delta_Angle = Angle2 - Angle1, %%steering:normalized((Angle2 - Angle1)),
 	    Length = get_length(Dash#dash_line.points),
-	    case {Length > 190 , Length < 250 } of
+	    case {Length > 185 , Length < 250 } of
 		{true, true} ->
 		    {[Dash|T] , Corresponding_Dash, {Offset, Delta_Angle}};
 		_ ->
@@ -195,11 +195,12 @@ move_point({X,Y},{{Cx,Cy},{{Dx,Dy}, Rotation}}) ->
     
     Distance = getDistance({X,Y}, {Cx,Cy}),
     Angle = getAng({Cx,Cy}, {X,Y}),
-    NewX = (Distance * math:cos(Angle+Rotation)) + Cx + Dx,
+    NewX = (Distance * math:cos(Angle + Rotation)) + Cx + Dx,
     
-    NewY = (Distance * math:sin(Angle+Rotation)) + Cy + Dy,
+    NewY = (Distance * math:sin(Angle + Rotation)) + Cy + Dy,
 
-    {round(NewX), round(NewY)}.
+    {round(X+Dx), round(Y+Dy)}.
+%%    {round(NewX), round(NewY)}.
 
 local_to_global({Cx,Cy} , Rotation, {X,Y}) ->
     
