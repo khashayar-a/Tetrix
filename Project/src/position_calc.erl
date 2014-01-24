@@ -27,27 +27,41 @@ calculate_car_position() ->
 %%--------------------------------------------------------------------
 
 init() ->
-    {ok, P} = python:start([{python_path, "/home/tetrix/Tetrix/Project/py_source"},
-			    {python, "python"}]),
-    python:call(P, hkodgpio, start_it, []),
-    %% initialize 
     say("init", []),
-    locate(P).
+    {ok,gpio_nif:start()},
+    gpio_nif:init_gpio_pins(),
+    locate().
+%%    {ok, P} = python:start([{python_path, "/home/tetrix/Tetrix/Project/py_source"},
+%%			    {python, "python"}]),
+%%    python:call(P, hkodgpio, start_it, []),
+    %% initialize 
+%%    say("init", []),
+%%    locate(P).
+
 
 %%--------------------------------------------------------------------
 % Internal functions Definitions 
 %%--------------------------------------------------------------------
 
-locate(P) ->
-    case python:call(P, hkodgpio, get_movement, []) of
-	0 ->
-	    ok;
-	Movement ->
-	    io:format("HAL READ : ~p~n",[Movement]),
-	    gen_server:cast(vehicle_data, {hal_moved, Movement})
+locate() ->
+    case gpio_nif:get_movement() of
+        0 ->
+            ok;
+        Movement ->
+	          io:format("HAL READ : ~p~n",[Movement]),
+            gen_server:cast(vehicle_data, {hal_moved, Movement})
     end,
     timer:sleep(1),
-    locate(P).
+    locate().
+%%    case python:call(P, hkodgpio, get_movement, []) of
+%%	0 ->
+%%	    ok;
+%%	Movement ->
+%%	    io:format("HAL READ : ~p~n",[Movement]),
+%%	    gen_server:cast(vehicle_data, {hal_moved, Movement})
+%%    end,
+%%    timer:sleep(1),
+%%    locate(P).
 
 % Console print outs for server actions (init, terminate, etc) 
 say(Format, Data) ->

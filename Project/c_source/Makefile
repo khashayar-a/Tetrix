@@ -30,6 +30,7 @@ INCLUDES ?= -I. `pkg-config libusb-1.0 --cflags `
 
 carControl: $(OBJS)
 	$(MAKENIF)
+	gcc -fPIC -shared -o ../ebin/gpio_nif.so gpio_nif.c gpio_functions.c -I../c_include/ -pthread 	
 	g++ -fPIC -shared -o ../ebin/imgproc_nif.so imgproc_nif.cpp camera_functions.cpp -I../c_include/ -lopencv_core -lopencv_imgproc -lopencv_highgui -lueye_api
 	g++ -fPIC -shared -o ../ebin/hal_nif.so hal_nif.cpp hal_functions.cpp -I../c_include/ 
 	g++ -fPIC -shared -o ../ebin/three_space_nif.so three_space_nif.cpp three_space_functions.cpp -I../c_include

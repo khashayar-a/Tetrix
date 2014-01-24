@@ -5,14 +5,15 @@ if [ $# -eq 0 ]; then
     echo -e "\033[1m-------------------------------------------------------------------------------- \033[0m"
     echo ""
     #./Monitor/run_python &
+    sudo sh kill_erlport.sh
     if ps aux | grep "[i]nit_monitor" > /dev/null
         then
             echo "Tetrix monitor is already running"
         else
-	    #sudo  ./Monitor/init_monitor &	    #./Monitor/init_monitor &
+	    sudo  ./Monitor/init_monitor &	    #./Monitor/init_monitor &
 	    echo "Activated Tetrix Monitor"
     fi
-    sudo sh kill_erlport.sh
+    
     sudo erl -pa ebin/ -env ERL_LIBS erlport/ -sname node1 -setcookie tetrix
 else
     if [ $1 = clean ]; then
