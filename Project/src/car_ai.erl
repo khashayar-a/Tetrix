@@ -4,7 +4,7 @@
 -export([start/0, init/0]).
 
 %% Internal exports
-%-export([calculate/1]).
+-export([calculate/1]).
 
 -define(SERVER, ?MODULE).
 -define(RPI, 'node2@192.168.3.150').
@@ -30,7 +30,7 @@ init() ->
     io:format("CAR AI INITNT~n", []),
     
     P = pcbnif:start_pcb(),
-    pcbnif:set_speed(40,P),
+    pcbnif:set_speed(50,P),
     timer:sleep(5000),
     calculate(P),
     ok.
@@ -40,28 +40,32 @@ init() ->
 %%--------------------------------------------------------------------
 
 calculate(Pcb_Address) ->
-    RemoteOn = pcbnif:get_remoteStatus(Pcb_Address),
-    %%io:format("REMOTE STATUS : ~p~n" , [RemoteOn]),
-    case RemoteOn of
-       	1 ->
-	    pcbnif:set_remoteLight(1, Pcb_Address),
-	    UpDown= pcbnif:get_remoteY(Pcb_Address),
-	    RightLeft=pcbnif:get_remoteX(Pcb_Address),
-	    case  RightLeft of
-	    	1 -> Ang=125;
-		2 -> Ang=55;
-		_Else -> Ang=90
-	    end,
-	    pcbnif:set_angle(Ang, Pcb_Address),
-	    pcbnif:set_speed(50, Pcb_Address),
-            pcbnif:set_direction(UpDown, Pcb_Address),
-	    timer:sleep(1),
-            calculate(Pcb_Address);
-        _Else ->
-    	%% Get car position from vehicle data, in form of {X, Y}
-	pcbnif:set_remoteLight(0, Pcb_Address),
-	%% Car_Position = vehicle_data:car_position(), 
-	%% Car_Heading = vehicle_data:car_heading(),
+    %% RemoteOn = pcbnif:get_remoteStatus(Pcb_Address),
+    %%   %%io:format("REMOTE STATUS : ~p~n" , [RemoteOn]),
+    %% case RemoteOn of
+    %%  	1 ->
+    %%   	    pcbnif:set_remoteLight(1, Pcb_Address),
+    %%   	    UpDown= pcbnif:get_remoteY(Pcb_Address),
+    %%   	    RightLeft=pcbnif:get_remoteX(Pcb_Address),
+    %%   	    case  RightLeft of
+    %%  	    	1 -> Ang=125;
+    %%  		2 -> Ang=55;
+    %%   		_Else -> Ang=90
+    %%   	    end,
+    %% 	    pcbnif:set_angle(Ang, Pcb_Address),
+    %%   	    pcbnif:set_speed(90, Pcb_Address),
+    %%  	    pcbnif:set_direction(UpDown, Pcb_Address),
+    %%   	    timer:sleep(1),
+    %%  	    calculate(Pcb_Address);
+    %%  	_Else ->
+    %%   	    %% Get car position from vehicle data, in form of {X, Y}
+    %%   	    pcbnif:set_remoteLight(0, Pcb_Address),
+	    
+	    
+	    
+
+    Car_Position = vehicle_data:car_position(), 
+    Car_Heading = vehicle_data:car_heading(),
     	%% Len = length(Node_List),
     	%% P1 = hd(Node_List),
     	%% P2 = lists:nth(round(Len/2), Node_List),
@@ -70,26 +74,26 @@ calculate(Pcb_Address) ->
 
 
 
-    	%% case map_gen:node_ahead(Car_Position, Car_Heading) of
-    	%% 	not_found ->
-    	%% 	    io:format("We are lost and fucked~p~n", [{Car_Position, Car_Heading}]),
-    	%% 	    pcbnif:set_direction(4, Pcb_Address);
-    	%% 	[P1,P2,P3] ->
-    	%% 	    Real_Car_Pos = calculate_actual_pos(Car_Position, Car_Heading),
-    	%% 	    Steering = steering:calculate(P1, P2, P3, Real_Car_Pos, Car_Heading),
-    	%% 	    Angle = round((Steering * 180.0) / math:pi()),	    
-    	%% 	    case {Angle < 26, Angle > -26} of
-    	%% 		{true, true} ->
-    	%% 		    Third = round(Angle * 1.67) + 90;
-    	%% 		{true,false} ->
-    	%% 		    Third = round(-25 * 1.67) + 90;
-    	%% 		{false, true} ->
-    	%% 		    Third = round(25*1.67) + 90
-    	%% 	    end,
-    	%% 	    io:format("DRIVING WITH ~p ~n" , [Third]),
-    	%% 	    pcbnif:set_angle(Third, Pcb_Address),
-    	%% 	    pcbnif:set_direction(1, Pcb_Address)
-    	%% end,
+    case map_gen:node_ahead(Car_Position, Car_Heading) of
+      	not_found ->
+      	    io:format("We are lost and fucked~p~n", [{Car_Position, Car_Heading}]),
+      	    pcbnif:set_direction(4, Pcb_Address);
+      	[P1,P2,P3] ->
+      	    Real_Car_Pos = calculate_actual_pos(Car_Position, Car_Heading),
+      	    Steering = steering:calculate(P1, P2, P3, Real_Car_Pos, Car_Heading),
+      	    Angle = round((Steering * 180.0) / math:pi()),	    
+      	    case {Angle < 26, Angle > -26} of
+     		{true, true} ->
+      		    Third = round(Angle * 2.3) + 90;
+     		{true,false} ->
+      		    Third = round(-25 * 2.3) + 90;
+      		{false, true} ->
+      		    Third = round(25 * 2.3) + 90
+      	    end,
+      	    io:format("DRIVING WITH ~p ~n" , [Third]),
+      	    pcbnif:set_angle(Third, Pcb_Address),
+      	    pcbnif:set_direction(1, Pcb_Address)
+    end,
     
       
 
@@ -133,12 +137,11 @@ calculate(Pcb_Address) ->
     	%% os:cmd(Serial),
 
 
-	%%    DiffTime = diff_time(Time, erlang:now()),
-	%%    io:format("Picture : ~p -> CARAI ~p ~n", [Pic, DiffTime]), 
-    	timer:sleep(1),
-    
-    	calculate(Pcb_Address)
-	end.
+	    %%    DiffTime = diff_time(Time, erlang:now()),
+	    %%    io:format("Picture : ~p -> CARAI ~p ~n", [Pic, DiffTime]), 
+    timer:sleep(1),
+    calculate(Pcb_Address) .  
+   %% end.
 %% done.
 %% Console print outs for server actions (init, terminate, etc) 
 say(Format, Data) ->

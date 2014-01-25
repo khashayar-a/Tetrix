@@ -267,6 +267,9 @@ clean_ets_dashes(Point) ->
     end.
 
 
+ets_clear() ->
+    ets:delete_all_objects(dash_lines).
+
 insert_dashes([Dash|T]) ->
     ets:insert(dash_lines, {Dash#dash_line.center_point, Dash}),
     insert_dashes(T);
@@ -340,6 +343,7 @@ get_dashes_ahead([{_, Dash} | T], {Position, Heading}) ->
 	{true, true} ->
 	    get_dashes_ahead(5, Dash);
 	_ ->
+	    io:format("AGEL : ~p~n", [Angle]),
 	    get_dashes_ahead(T, {Position, Heading})
     end;
 get_dashes_ahead(0, _) ->
@@ -383,7 +387,7 @@ add_dashes({X1,Y1}, {X2,Y2}, {X3,Y3},Amount)->
 		    Points = gen_dash_straight({{X2,Y2}, {X3,Y3}}, Amount);
                 {CenterPoint, Radius, Clockwise} -> 
                     Points = gen_dash_circle( {CenterPoint, Radius, Clockwise}, {X3,Y3}, Amount);
-                Unknown ->
+                _Unknown ->
                     Points = gen_dash_straight({{X2,Y2}, {X3,Y3}}, Amount)       
             end;
         _ ->
@@ -474,6 +478,24 @@ generate_estimated_dashes(_) ->
 
 
 
+get_nodes_ahead(List) ->
+    case length(List) of
+	2 ->
+	    [First, Second] = List,
+	    First_Dash = ets_lookup(First),
+	    Second_Dash = ets_lookup(Second),
+	    {ok,[Off_First]} = offsetCalculation:calculate_offset_list(?InputLaneD, ?LaneAdjacent, 
+								First_Dash#dash_line.points),   
+	    {ok,[Off_Third]} = offsetCalculation:calculate_offset_list(?InputLaneD, ?LaneAdjacent, 
+								Second_Dash#dash_line.points),   
+	    {ok,[Off_Second]} = offsetCalculation:calculate_offset_list(?InputLaneD, ?LaneAdjacent, 
+								 find_mid_dash(First_Dash#dash_line.points,
+									       Second_Dash#dash_line.points)),
+	    [Off_First, Off_Second, Off_Third];
+	_ ->
+	    get_nodes_ahead(List, [])
+    end.
+
 get_nodes_ahead([Head| T], Buff) ->
     Dash = ets_lookup(Head),
     {ok,[OP]} = offsetCalculation:calculate_offset_list(?InputLaneD, ?LaneAdjacent, 
@@ -481,3 +503,26 @@ get_nodes_ahead([Head| T], Buff) ->
     get_nodes_ahead(T, Buff ++ [OP]);
 get_nodes_ahead([], Buff) ->
     Buff.
+
+
+
+
+
+find_mid_dash([First = {X1,Y1}, _, Second = {X2,Y2}] , [Third = {X3,Y3}, _,_]) ->
+    ValX = min(abs(X1-X2)*1000000, abs(X2-X3)*1000000),
+    ValY = min(abs(Y1-Y2)*1000000, abs(Y2-Y3)*1000000),
+    B1 = (ValX < 1) or (ValY < 1),
+    B2 = math:atan2(Y2-Y1,X2-X1) == math:atan2(Y3-Y2,X3-X2),
+    case  {B1 , B2} of 
+	{false, false} ->
+	    {Center = {Cx,Cy} , Radius , Clockwise} = steering:findcircle(First, Second, Third),
+	    Angle1 = steering:getAng(Center, Second),
+	    Angle2 = steering:getAng(Center, Third),
+	    Mid_Angle = (Angle1 + Angle2) / 2, 
+	    
+	    X = Radius * math:cos(Mid_Angle) + Cx, 
+	    Y = Radius * math:sin(Mid_Angle) + Cy,
+	    [Second, {X,Y} , Third];
+	_ ->
+	    [Second, {(X2+X3) / 2, (Y2+Y3) /2 } , Third]
+    end.

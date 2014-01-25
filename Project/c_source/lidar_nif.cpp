@@ -26,6 +26,8 @@
 
 using namespace std;
 
+#define ANG 335
+
 typedef struct {
   double x;
   double y;
@@ -259,6 +261,15 @@ void* lidar_thread(void* env)
 	  if(checksum == get_check_sum(arr))
 	    {
 	      //printf("Checksum passed: %d", checksum);
+	      /*	      if(index*4+0 == ANG && dist0 > 80)
+		cout << "dist0: " << dist0 << " ,ANGLE: " << index*4+0 << endl;
+	      if(index*4+1 == ANG && dist1 > 80)
+		cout << "dist1: " << dist1 << " ,ANGLE: " << index*4+1 << endl;
+	      if(index*4+2 == ANG && dist2 > 80)
+		cout << "dist2: " << dist2 << " ,ANGLE: " << index*4+2 << endl;
+	      if(index*4+3 == ANG && dist3 > 80)
+		cout << "dist3: " << dist3 << " ,ANGLE: " << index*4+3 << endl;
+	      */
 	      if(point_vector.size() > 716)
 		{
 		  //mtx.lock();
@@ -267,7 +278,8 @@ void* lidar_thread(void* env)
 		}
 	      if(flag0 == 0 && dist0 <= 3000)
 		{
-		  angle_rad = (index * 4 + 0) * M_PI / 180.0;
+		  int k = (((index * 4 + 0) - 115) + 360 )% 360;
+		  angle_rad = k * M_PI / 180.0;
 		  c = cos(angle_rad);
 		  s = sin(angle_rad);
 
@@ -281,7 +293,8 @@ void* lidar_thread(void* env)
 		}
 	      if(flag1 == 0 && dist1 <= 3000)
 		{
-		  angle_rad = (index * 4 + 1) * M_PI / 180.0;
+		  int k = (((index * 4 + 1) - 115) + 360 )% 360;
+		  angle_rad = k * M_PI / 180.0;
 		  c = cos(angle_rad);
 		  s = sin(angle_rad);
 
@@ -295,7 +308,8 @@ void* lidar_thread(void* env)
 		}
 	      if(flag2 == 0 && dist2 <= 3000)
 		{
-		  angle_rad = (index * 4 + 2) * M_PI / 180.0;
+		  int k = (((index * 4 + 2) - 115) + 360 )% 360;
+		  angle_rad = k * M_PI / 180.0;
 		  c = cos(angle_rad);
 		  s = sin(angle_rad);
 
@@ -309,7 +323,8 @@ void* lidar_thread(void* env)
 		}
 	      if(flag3 == 0 && dist3 <= 3000)
 		{		  
-		  angle_rad = (index * 4 + 3) * M_PI / 180.0;
+		  int k = (((index * 4 + 3) - 115) + 360 )% 360;
+		  angle_rad = k * M_PI / 180.0;
 		  c = cos(angle_rad);
 		  s = sin(angle_rad);
 

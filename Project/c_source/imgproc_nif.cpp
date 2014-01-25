@@ -161,7 +161,7 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
   else 
     {
       // if(image_counter % 5 == 0)
-      // 	{
+      //  	{
       // 	  stringstream ss;//create a stringstream
       // 	  ss << "/home/tetrix/images/image" << image_counter << ".jpg" ;//add number to the stream
       // 	  cvSaveImage(ss.str().c_str() , gray);

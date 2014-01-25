@@ -7,7 +7,7 @@
 -on_load(init/0).
 
 init() ->
-     erlang:load_nif("./pcbnif", 0).
+     erlang:load_nif("./ebin/pcbnif", 0).
 
 
 start_pcb() ->

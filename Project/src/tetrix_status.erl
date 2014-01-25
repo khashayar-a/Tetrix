@@ -3,7 +3,7 @@
 %-behaviour(gen_server).
 
 %% API
--export([start/0, init/1]).
+-export([start/0, init/0]).
 
 %% gen_server callbacks
 %-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -14,27 +14,27 @@
 
 start()->
   %net_kernel:start(['node1@arch', longnames]),
-  State = [],
-  Pid = spawn(?SERVER, init, [State]),
+  Pid = spawn(?SERVER, init, []),
   register(shell, Pid),
   {ok, Pid}.
 
-init(State) ->
+init() ->
   net_kernel:start(['node1', shortnames]),
   loop().
 
 loop()->
   receive
     {establish_connection, From} ->
-        io:format("in the node1 loop",[]),
+        %io:format("in the node1 loop",[]),
         From ! {origin, self()};
     {check_availability, From} ->
-        io:format("rec'd random message in check_availability",[]),
+        %io:format("rec'd random message in check_availability",[]),
         CarHeading = vehicle_data:car_heading(),
         CarPOS = vehicle_data:car_position(),
         From ! {ok, {CarHeading, CarPOS}};
     _ ->
-        io:format("rec'd random message in tetrix_status",[])
+        ok
+        %io:format("rec'd random message in tetrix_status",[])
   end,
   loop().
 

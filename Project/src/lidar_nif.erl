@@ -12,16 +12,15 @@ init() ->
      erlang:load_nif("./lidar_nif", 0).
 
 read() ->
-    {X, Y} = get_lidar(),
-    write(X,Y).
+    List = get_lidar(),
+    write(List).
 
-write([],[]) ->
+write([]) ->
     ok;
 
-write([H|T],[X|S]) ->
-    
-    file:write_file("/home/pi/data.txt", io_lib:fwrite("~p~n", [{H,X}]), [append]),
-    write(T,S).
+write([H|T]) ->    
+    file:write_file("/home/tetrix/lidar.txt", io_lib:fwrite("~p~n", [H]), [append]),
+    write(T).
 
 loop() ->
     {X,Y} = get_lidar(),

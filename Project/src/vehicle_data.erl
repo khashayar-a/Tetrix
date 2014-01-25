@@ -30,15 +30,17 @@ init([]) ->
 %%  Code for having vehicle data retrieve car position and heading from the
 %%  monitor
 %%
-%%  register(vehicle_data, self()),
-%%  {shell,   
+%%    {Heading, Current_POS} = get_heading_POS_from_monitor(),
+%%    io:format("***Data from monitor: Heading: ~p~n , Current POS: ~p~n",
+%%          [Heading, Current_POS]),
 
-    Position = {100,200},
-    Heading = math:pi() / 2, %%0, %gen_server:call({hardware, ?RPI} , initial_heading),
+    Position = {0,0},
+    Heading = 0, %%math:pi() / 2, %%0, %gen_server:call({hardware, ?RPI} , initial_heading),
     Tail_Position = calculate_tail(Position, Heading), 
     {ok, #state{car_position = Position,  heading = Heading, car_tail = Tail_Position,  
 		estimated_car_position = Position , estimated_heading = Heading, 
-		estimated_car_tail = Tail_Position, sensor_data = {stuff, 0}}}.
+		estimated_car_tail = Tail_Position, sensor_data = {stuff, 0},
+		initial_heading = 0 , mode = init}}.
 
 %%--------------------------------------------------------------------
 %% API Function Definitions 
@@ -76,12 +78,6 @@ update_sensor(Data) ->
     ?SERVER,
     {update_sensor, Data}).
 
-get_heading_POS_from_monitor() ->
-   {monitor_tetrix, node2@odroidu2 } ! {initial_POS_heading, self()},
-   receive
-      whoa ->   
-          ok
-   end.
 
 %%--------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -130,16 +126,21 @@ handle_cast({update_sensor, Data}, State) ->
     {noreply, State#state{sensor_data = Data }};
 
 handle_cast({correct_position, Position , Heading}, State) ->
-    io:format("Position Changed from ~p To ~p ~n", [State#state.estimated_car_position, Position]),
+    io:format("Position Changed from ~p To ~p  --- HEADING : ~p~n", 
+	      [State#state.estimated_car_position, Position, State#state.estimated_heading]), 
     {noreply, State#state{car_position = Position , %%heading = Heading, 
 			  car_tail = calculate_tail(Position , Heading),
 			  %%estimated_heading = normalized(Heading),
 			  estimated_car_position = Position, 
 			  estimated_car_tail = calculate_tail(Position , Heading)}};
+handle_cast(reset_position, State) ->
+    {noreply, State#state{estimated_car_position = {0,0} ,
+			  car_position = {0,0}}};
 handle_cast({angle, Heading}, State) ->
+%%    io:format("HEADING COMIN ~p~n", [Heading]),
     case State#state.mode of
 	init ->
-	    Initial = math:pi()/2 - Heading,
+	    Initial = 0 - Heading,
 	    {noreply, State#state{estimated_heading = Heading + Initial, 
 				  initial_heading = Initial, mode = run }};
 	_ ->
@@ -213,3 +214,11 @@ normalize(Angle, MyPI) ->
         _ ->
             normalize(Angle+MyPI, MyPI)
     end.
+
+get_heading_POS_from_monitor() ->
+   {monitor_tetrix, node2@odroidx2 } ! {initial_POS_heading, self()},
+   receive
+      {heading_POS_from_monitor, {Heading, Current_POS} } ->
+          {Heading, Current_POS} 
+   end.
+
