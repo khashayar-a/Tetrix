@@ -17,6 +17,41 @@ int movement = 0;
 
 void *map_base, *virt_addr;
 int fd;
+/*
+int main() 
+{ 
+ 
+  map_pins(); 
+ 
+  setup_gpiopin(PIN31Channel, PIN31Bit, PULLDS, INPUT);  
+  setup_gpiopin(PIN29Channel, PIN29Bit, PULLDS, INPUT);  
+  setup_gpiopin(PIN27Channel, PIN27Bit, PULLDS, INPUT);  
+ 
+  pthread_t loop;  
+  pthread_create(&loop, NULL, &loop_retrieving,NULL); 
+     
+  
+  int *results; 
+  int resultSaved[3] = {0, 0, 0}; 
+  while(1){ 
+      results = get_gpio_data(); 
+ 
+      if(results[0] != resultSaved[0] || results[1] != resultSaved[1] ||results[2]!=resultSaved[2]){ 
+        //printf("OldReadings: (%d, %d, %d)\n", resultSaved[0], resultSaved[1],resultSaved[2]); 
+        //printf("NewReadings: (%d, %d, %d)\n", results[0], results[1], results[2]); 
+        resultSaved[0] = results[0]; 
+        resultSaved[1] = results[1]; 
+        resultSaved[2] = results[2]; 
+        //printf("(%d, %d, %d)\n", resultSaved[0], resultSaved[1],resultSaved[2]); 
+        //printf("movement: %d\n", get_movement_data()); 
+      }
+  }
+  
+  
+   
+  return 0; 
+}
+*/
 
 /////////////////////////Functions to be called by Erlang
 
@@ -44,6 +79,7 @@ int get_movement_data()
 
   int return_value = movement;
   movement = 0;
+//  printf("(%d, %d, %d )", pins[0], pins[1], pins[2]); 
   return return_value;
 }
 
@@ -146,12 +182,17 @@ void* loop_retrieving(void *arg)
     pinsNew[1] = read_gpio_pin(PIN31Channel, PIN31Bit);
     pinsNew[2] = read_gpio_pin(PIN29Channel, PIN29Bit);
 
+
     if(is_movement())
     {
       movement += calculate_movement(pins_state(pins), pins_state(pinsNew));
+      //printf("pinstate: %d, pinstateNew: %d", pins_state(pins),pins_state(pinsNew));
+      //if(pins[0] != pinsNew[0] || pins[1] != pinsNew[1] || pins[2] != pins[2])
+      //  printf("(%d, %d, %d)\n", pins[0], pins[1], pins[2]);
       pins[0] = pinsNew[0];
       pins[1] = pinsNew[1];
       pins[2] = pinsNew[2];
+      //printf("(%d, %d, %d )\n", pins[0], pins[1], pins[2]); 
     }
 
     usleep(100);
@@ -207,7 +248,7 @@ int calculate_movement(int before, int after)
     return 0;
  else if (after > before)
     return after - before;
- else     
+ else if (after < before)     
     return after - before + 6;
 }
 

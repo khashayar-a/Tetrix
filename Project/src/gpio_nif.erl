@@ -14,6 +14,7 @@ init_gpio_pins() ->
     ?NIF_STUB.
 
 get_movement() ->
+
     ?NIF_STUB.
 
 start() ->

@@ -34,8 +34,9 @@ init([]) ->
 %%    io:format("***Data from monitor: Heading: ~p~n , Current POS: ~p~n",
 %%          [Heading, Current_POS]),
 
-    Position = {0,0},
-    Heading = 0, %%math:pi() / 2, %%0, %gen_server:call({hardware, ?RPI} , initial_heading),
+    Position = {4857,3694},
+    Heading = -0.5464177145377578, 
+    %%0, %%math:pi() / 2, %%0, %gen_server:call({hardware, ?RPI} , initial_heading),
     Tail_Position = calculate_tail(Position, Heading), 
     {ok, #state{car_position = Position,  heading = Heading, car_tail = Tail_Position,  
 		estimated_car_position = Position , estimated_heading = Heading, 
@@ -126,8 +127,8 @@ handle_cast({update_sensor, Data}, State) ->
     {noreply, State#state{sensor_data = Data }};
 
 handle_cast({correct_position, Position , Heading}, State) ->
-    io:format("Position Changed from ~p To ~p  --- HEADING : ~p~n", 
-	      [State#state.estimated_car_position, Position, State#state.estimated_heading]), 
+%%    io:format("Position Changed from ~p To ~p  --- HEADING : ~p~n", 
+%%	      [State#state.estimated_car_position, Position, State#state.estimated_heading]), 
     {noreply, State#state{car_position = Position , %%heading = Heading, 
 			  car_tail = calculate_tail(Position , Heading),
 			  %%estimated_heading = normalized(Heading),
@@ -140,7 +141,7 @@ handle_cast({angle, Heading}, State) ->
 %%    io:format("HEADING COMIN ~p~n", [Heading]),
     case State#state.mode of
 	init ->
-	    Initial = 0 - Heading,
+	    Initial = -0.5464177145377578 - Heading,
 	    {noreply, State#state{estimated_heading = Heading + Initial, 
 				  initial_heading = Initial, mode = run }};
 	_ ->

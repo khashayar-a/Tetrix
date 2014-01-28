@@ -5,12 +5,15 @@
 // NIF callbacks
 //------------------------------------------------------------------------------
 
+int prev_movement = 0;
+
 
 /* Function that returns the current movement 
 */
 static ERL_NIF_TERM get_movement(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int movement = get_movement_data();
+    
     return enif_make_int(env,movement);
 }
 

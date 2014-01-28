@@ -54,3 +54,6 @@ nif:
 
 img_proc: 
 	g++ -fPIC -shared -o ../ebin/imgproc_nif.so imgproc_nif.cpp camera_functions.cpp -I../c_include/ -lopencv_core -lopencv_imgproc -lopencv_highgui -lueye_api
+
+gpio:
+	gcc gpio_functions.c -o gpio_functions -I ../c_include -pthread

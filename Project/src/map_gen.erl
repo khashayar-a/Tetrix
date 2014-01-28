@@ -25,16 +25,16 @@ init([]) ->
     
     {ok, ID} = ets:file2tab("include/undistort.txt"),
     
-    ets:new(dash_lines, [set, named_table]),
-%%    ets:file2tab("include/Jan24-2"),
+%%    ets:new(dash_lines, [set, named_table]),
+    ets:file2tab("include/Jan28-1"),
     %% Dummy values for the state 
     Car_Pos =  vehicle_data:car_position(),
     Car_Heading = vehicle_data:car_heading(),
-%%    Dashes_Ahead = map_functions:get_dashes_ahead(Car_Pos, Car_Heading),
+    Dashes_Ahead = map_functions:get_dashes_ahead(Car_Pos, Car_Heading),
 
     {ok, #state{road_side = right, node_ahead = {{0,0},{0,0},{0,0}},
-		matrix_id = ID , mode = backup, 
-%%		last_dashes = Dashes_Ahead ,
+		matrix_id = ID , mode = following, 
+		last_dashes = Dashes_Ahead ,
 		debug = on
 		}}.
 
@@ -106,9 +106,9 @@ handle_call({node_ahead,{CarX,CarY} , Heading}, _From, State) ->
 		Before ->
 		    NodeList = map_functions:get_dashes_ahead(3, Before)
 	    end,
-	    io:format("HERE AT : ~p, ~p DRIVING ON PATH OF THESE NODES :~p~n", [ {CarX,CarY}, Heading, NodeList]),
-	    Reply = map_functions:get_nodes_ahead(NodeList),
-	    io:format("DRIVING ON NODES : ~p~n",[Reply])
+%%	    io:format("HERE AT : ~p, ~p DRIVING ON PATH OF THESE NODES :~p~n", [ {CarX,CarY}, Heading, NodeList]),
+	    Reply = map_functions:get_nodes_ahead(NodeList)
+%%	    io:format("DRIVING ON NODES : ~p~n",[Reply])
     end,
     {reply, Reply, State};
 
@@ -312,8 +312,26 @@ handle_cast({add_frame, {{Dashes, Line_ID}, {Car_Pos, Car_Tail, Car_Heading}} , 
 						 Dashes, {{0,0}, Car_Heading}, []),
     NewDashes = map_functions:connect_dashes(Temp_Dashes, undef, []), 
 
+    case length(NewDashes) of
+	2 ->
+	    [Dash1, Dash2] = NewDashes,
+
+	    [_,Mid_Point,_] = map_functions:find_mid_dash(Dash1#dash_line.points, Dash2#dash_line.points),
+
+	    io:format("MiDPOINT BASE ON : ~p  -- ~p  -- ~p ~n", [Dash1#dash_line.points, Mid_Point, Dash2#dash_line.points]),
+	    Temp_Map = map_functions:add_dashes(Dash1#dash_line.center_point, Mid_Point, 
+				     Dash2#dash_line.center_point, 5);
+	_ ->
+	    [Dash1, Dash2, Dash3 | _] = NewDashes,
+	    Temp_Map = map_functions:add_dashes(Dash1#dash_line.center_point, 
+						Dash2#dash_line.center_point,
+						Dash3#dash_line.center_point, 5)
+    end,
+
+    New_Map = map_functions:connect_dashes(Temp_Map, undef, []), 
     map_functions:ets_clear(),
-    map_functions:insert_dashes(NewDashes),
+    io:format("MAP GENERATED : ~n" , []),
+    map_functions:insert_dashes(New_Map),
     gen_server:cast(vehicle_data, reset_position),
     {noreply, State#state{last_dashes = map_functions:get_last_dashes(),
 			  debug = off}};

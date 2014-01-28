@@ -23,7 +23,7 @@ loop(Prev_Heading) ->
 	Prev_Heading ->
 	    loop(Prev_Heading);
 	New_Heading ->
-%%	    io:format("RAZOR READ : ~p~n", [New_Heading]),
+%%	    io:format("RAZOR READ : ~p~n", [New_Heading * 180 / math:pi()]),
 	    gen_server:cast(vehicle_data, {angle, New_Heading}),
 	    loop(New_Heading)
     end.

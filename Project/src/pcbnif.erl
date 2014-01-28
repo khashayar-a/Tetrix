@@ -22,6 +22,8 @@ set_brakeLight(_,_) ->
     ?NIF_STUB.
 set_remoteLight(_,_) ->
     ?NIF_STUB.
+set_beep(_,_) ->
+    ?NIF_STUB.
 set_display(_,_) ->
     ?NIF_STUB.
 set_speed(_,_) ->

@@ -26,7 +26,7 @@ static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
  */
 static ERL_NIF_TERM get_heading(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-
+  
   float c = heading();
   return enif_make_double(env, c); 
    
@@ -39,10 +39,19 @@ static ERL_NIF_TERM deinit_3space(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
  
 }
 
+static ERL_NIF_TERM switch_compass(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
+  int flag;
+  enif_get_int(env, argv[0], &flag);
+  set_compass(flag);
+  return enif_make_atom(env, "ok");
+}
+
+
 /* Nif function definitions */
 static ErlNifFunc nif_funcs[] =
   {
     {"get_heading", 0, get_heading},
+    {"switch_compass", 1, switch_compass},
     {"deinit_3space", 0, deinit_3space}
   };
 

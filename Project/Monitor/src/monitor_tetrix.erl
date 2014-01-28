@@ -21,6 +21,8 @@
 
 % starts server
 start_link() ->
+
+    %register(monitor_tetrix, self()), 
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %% Function for making a handle_call, that returns the cars current
@@ -51,6 +53,15 @@ handle_info({ok, {CarHeading, CarPOS}}, State) ->
   %io:format("tetrix app is available!\n",[]),
   {noreply, State#state{heading = CarHeading, currentPOS = CarPOS }};
 
+% Receives initial CarHeading and CarPos from the main Tetrix app node
+handle_info({initial_POS_heading, From}, State) ->
+  %io:format("tetrix app is available!\n",[]),
+
+  % Send current position and heading to vehicle data
+  From ! {heading_POS_from_monitor, {State#state.heading, State#state.currentPOS  }},
+  {noreply, State};
+
+
 handle_info({initial_data, {CarHeading, CarPOS}}, State) ->
   %io:format("tetrix app is available!\n",[]),
   {noreply, State#state{heading = CarHeading, currentPOS = CarPOS }};
@@ -76,6 +87,7 @@ terminate(_Reason, _State) ->
 %%--------------------------------------------------------------------
 
 init([]) ->
+  %register(monitor_tetrix, self()), 
   proc_lib:start_link(?SERVER, init_loop, [self()]),
   {ok, #state{heading = math:pi()/2, currentPOS = {100,200}}}.
 
@@ -90,12 +102,12 @@ loop(PID)->
     { {[], _} } ->
          case net_kernel:connect_node(node1@odroidx2) of
             false ->
-              io:format("false: no connections at all\n",[]),
+              %io:format("false: no connections at all\n",[]),
               timer:sleep(500),
-              case startup_tetrix() of
-                ok ->
-                  net_kernel:connect_node(node1@odroidx2)
-              end,
+              %case startup_tetrix() of
+              %  ok ->
+              %    net_kernel:connect_node(node1@odroidx2)
+              %end,
               timer:sleep(500);
             true ->
               %io:format("just connected to tetrix app!\n")

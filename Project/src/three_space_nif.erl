@@ -15,5 +15,7 @@ get_heading() ->
 deinit_3space() ->
     ?NIF_STUB.
 
+switch_compass(_) ->
+    ?NIF_STUB.
 
 %% INTERNAL

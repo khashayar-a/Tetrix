@@ -5,4 +5,5 @@
 int init();
 float heading();
 int deinit();
+void set_compass(int flag);
 #endif

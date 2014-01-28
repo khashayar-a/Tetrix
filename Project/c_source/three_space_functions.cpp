@@ -96,6 +96,21 @@ void endian_swap_32(uint32_t * x)
 }
 
 
+
+void set_compass(int flag)
+{
+  if (flag){
+    write(tty_fd, ":109,1\n", 7);
+    usleep(10*1000);
+  }
+  else{
+    write(tty_fd, ":109,0\n", 7);
+    usleep(10*1000);
+  }
+}
+
+
+
 float heading()
 {
   char value[128][128];
@@ -106,7 +121,7 @@ float heading()
   float heading, attitude, bank;
   
   
-  write(tty_fd, ":0\n", 4);
+  write(tty_fd, ":0\n", 3);
   usleep(10*1000);
 
   for(int i = 0;;i++)

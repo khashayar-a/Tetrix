@@ -19,22 +19,46 @@ calculate({X1,Y1}, {X2,Y2}, {X3,Y3}, CarPos, CarHeading) ->
 	    %% io:format("HERE 1~n" , []),
 	    case findcircle({X1,Y1}, {X2,Y2}, {X3,Y3}) of 
 		infinate ->
-		    io:format("HERE 2~n" , []),
-		    SteerDirection = getAng(CarPos, {X3,Y3});
+		    io:format("HERE 1~n" , []),
+		    case findcircle(CarPos, {X2,Y2}, {X3,Y3}) of
+			infinate ->
+			    SteerDirection = getAng(CarPos, {X3,Y3});
+			{CenterPoint, Radius, Clockwise}  -> 
+			    SteerDirection = followcircle(CarPos, CenterPoint, Radius, Clockwise);
+			_ ->
+			    SteerDirection = getAng(CarPos, {X3,Y3})
+		    end;
 		{CenterPoint, Radius, Clockwise}  -> 
 		    %% io:format("CP ~p, R ~p , CL ~p ~n" , [CenterPoint, Radius, Clockwise]),
 		    SteerDirection = followcircle(CarPos, CenterPoint, Radius, Clockwise);
 		_ ->
-		    io:format("HERE 3~n" , []),
-		    SteerDirection = getAng(CarPos, {X3,Y3})	
+		    io:format("HERE 2~n" , []),
+		    case findcircle(CarPos, {X2,Y2}, {X3,Y3}) of
+			infinate ->
+			    SteerDirection = getAng(CarPos, {X3,Y3});
+			{CenterPoint, Radius, Clockwise}  -> 
+			    SteerDirection = followcircle(CarPos, CenterPoint, Radius, Clockwise);
+			_ ->
+			    SteerDirection = getAng(CarPos, {X3,Y3})
+		    end
 	    end;
 	_ ->
-	    SteerDirection = getAng(CarPos, {X3,Y3})
+	    io:format("HERE 3~n" , []),
+	    case findcircle({X1,X2}, {X2+1,Y2+1}, {X3,Y3}) of
+		infinate ->
+		    SteerDirection = getAng(CarPos, {X3,Y3});
+		{CenterPoint, Radius, Clockwise}  -> 
+		    SteerDirection = followcircle(CarPos, CenterPoint, Radius, Clockwise);
+		_ ->
+		    SteerDirection = getAng(CarPos, {X3,Y3})
+	    end
     end,
     Rem_of_Steer = ?frem(SteerDirection, (math:pi() * 2.0) ) + (math:pi() * 2) ,
     Rem_of_Head = ?frem(CarHeading, (math:pi() * 2.0) ) + (math:pi() * 2),
     Final_Steer = ?frem( (Rem_of_Steer - Rem_of_Head) , (math:pi() * 2.0) ), 
+%%    Final_Steer = SteerDirection - CarHeading,
     normalized(Final_Steer).
+
 
 
 findcircle({X1,Y1}, {X2,Y2}, {X3,Y3}) -> 
@@ -52,8 +76,13 @@ findcircle({X1,Y1}, {X2,Y2}, {X3,Y3}) ->
    
 
     Line2 = ((Y2 - Y3) / (X2 - X3)),
-    
-    CenterPointX = (Line1*Line2*(Y3-Y1)+ Line1*(X2+X3) - Line2*(X1+X2)) / (2*(Line1-Line2)),
+    case (Line1 - Line2) == 0 of
+     	true ->
+     	    Delta_Line =  0.1;
+	false ->
+     	    Delta_Line = Line1 - Line2
+    end,
+    CenterPointX = (Line1*Line2*(Y3-Y1)+ Line1*(X2+X3) - Line2*(X1+X2)) / (2*(Delta_Line)),
     CenterPointY = -(1/Line1) * (CenterPointX - ((X1+X2)/2)) + (Y1 + Y2) / 2,
     CenterPoint = {CenterPointX,CenterPointY},
     %% #steerCalc{cp = CenterPoint}, 
@@ -65,14 +94,14 @@ findcircle({X1,Y1}, {X2,Y2}, {X3,Y3}) ->
 	true -> 
 	    infinite;
 	false ->
-	    Line4 = getAng({X2 , Y2} , {X3 , Y3}),	
+	    Line4 = getAng({X2 , Y2} , {X3 , Y3}),
 	    case Line4 > 100000 of
 		true ->
 		    infinite;
 		false ->
 		    Area = math:cos(Line4+(math:pi()/2-Line3)),
-		    Clockwise = Area/(abs(Area)),		 
-		    {CenterPoint , Radius , Clockwise}
+		    Clockwise = Area/(abs(Area)),
+		   {CenterPoint , Radius , Clockwise}
 	    end
     end.	  
 

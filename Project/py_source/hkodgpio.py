@@ -101,6 +101,7 @@ def setup_fd():
 def setup_mmap(f):
   try:
     m = mmap.mmap(f, mmap.PAGESIZE, mmap.MAP_SHARED, mmap.PROT_WRITE | mmap.PROT_READ, offset=gpio_addr & ~MAP_MASK)
+    # print 'mmap.PAGESIZE: ', mmap.PAGESIZE
   except:
     print "mmap of GPIO space failed: ", sys.exc_info()[0]
     raise
@@ -207,10 +208,11 @@ def c_mmap_example():             # pure C library access of GPIO registers
   gpio_shutdown()
 
 def valid_readings(pinsNew):
-  if pinsNew[1:] == pinsNew[:-1]:
-    return False
-  else:
-    return True
+	if pinsNew[0] == pinsNew[1] and pinsNew[0] == pinsNew[2]:
+#	if pinsNew[1:] == pinsNew[:-1]:
+		return False
+	else:
+		return True
 
 def read_3_pins():
 
@@ -248,12 +250,12 @@ def read_3_pins():
   #pin29a = 0
   #pin31a = 0
 	global run
-	while run:
+	while run and movement < 10000:
 		sleep(0.001)
 		pinsNew[0]= read_gpio(mm, gpio_addresses['pin27'])
 		pinsNew[1]= read_gpio(mm, gpio_addresses['pin31'])
 		pinsNew[2]= read_gpio(mm, gpio_addresses['pin29'])
-    #print 'test - pin27: ', pinsNew[0], ', pin29: ', pinsNew[1], ', pin31: ', pinsNew[2] 
+#		print 'test - pin27: ', pinsNew[0], ', pin29: ', pinsNew[1], ', pin31: ', pinsNew[2] 
 	  
 		if pins[0] != pinsNew[0] or pins[1] != pinsNew[1] or pins[2] != pinsNew[2]:
       #print 'test - pin27: ', pin27a, ', pin29: ', pin29a, ', pin31: ', pin31a 
@@ -267,7 +269,7 @@ def read_3_pins():
 			if valid_readings(pinsNew):
 				movement = movement + calculate_movement(pins_state(pins), pins_state(pinsNew))
 				pins = deepcopy(pinsNew)
-				print 'MOVEMENT : ', movement
+#				print 'MOVEMENT : ', movement
         #pins = pinsNew
         #pins[0] = pinsNew[0]
         #pins[1] = pinsNew[1]
@@ -276,7 +278,7 @@ def read_3_pins():
 
         #print 'changed value!'
 			else:
-				print '****BAD VALUE!!!****'
+				print '****BAD VALUE!!!****', '  pin27: ', pinsNew[0], ', pin29: ', pinsNew[1], ', pin31: ', pinsNew[2] 
 
     #print 'pin27: ', pin27, ', pin29: ', pin29, ', pin31: ', pin31 
     #print 'read 1 from pin27: ', read_gpio(mm, gpio_addresses['pin27'])

@@ -30,7 +30,7 @@ init() ->
     io:format("CAR AI INITNT~n", []),
     
     P = pcbnif:start_pcb(),
-    pcbnif:set_speed(50,P),
+    pcbnif:set_speed(10,P),
     timer:sleep(5000),
     calculate(P),
     ok.
@@ -90,7 +90,7 @@ calculate(Pcb_Address) ->
       		{false, true} ->
       		    Third = round(25 * 2.3) + 90
       	    end,
-      	    io:format("DRIVING WITH ~p ~n" , [Third]),
+%%      	    io:format("DRIVING WITH ~p ~n" , [Third]),
       	    pcbnif:set_angle(Third, Pcb_Address),
       	    pcbnif:set_direction(1, Pcb_Address)
     end,

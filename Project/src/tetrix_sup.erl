@@ -37,7 +37,7 @@ init([]) ->
 			       ?CHILD_W(car_ai, worker),
 			       ?CHILD_W(image_proc, worker) 
 			       ]}}.
-%            ?CHILD_W(car_ai, worker) , ?CHILD(hardware_data, worker),
-%            ?CHILD(image_proc, worker), ?CHILD(position_calc, worker)]}}.
+%%            ?CHILD_W(car_ai, worker) , ?CHILD(hardware_data, worker),
+%%            ?CHILD(image_proc, worker), ?CHILD(position_calc, worker)]}}.
     
 

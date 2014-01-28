@@ -72,11 +72,16 @@ static PyObject* py_setup_gpio(PyObject* self, PyObject* args) {
 // configure a single GPIO pin: pullup/down and input or output is currently set here
 // it does NOT use the SYSFS interface but directly accesses the GPIO control registers
 static PyObject* py_setup_gpiopin(PyObject* self, PyObject* args) {
+  printf("in py_setup_gpiopin");
 	int channel, bit, value, pullval;
 	div_t div_res;
 	unsigned char val, tmp, hld;
 	unsigned char * base;
 	if (!PyArg_ParseTuple(args, "iiii", &channel, &bit, &pullval, &value)) return NULL;
+
+  //print outs
+
+  printf("channel: %d", channel);
 	base = (map_base + channel) - GPIO_GPCONREG;
 	div_res = div (bit, 2);		// 2 nibbles per byte so divide by 2
 	base += div_res.quot;

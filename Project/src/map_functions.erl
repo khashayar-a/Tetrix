@@ -1,3 +1,4 @@
+
 -module(map_functions).
 
 -include("../include/offsetCalculation.hrl").
@@ -384,21 +385,21 @@ add_dashes({X1,Y1}, {X2,Y2}, {X3,Y3},Amount)->
         {false, false} ->
             case steering:findcircle({X1,Y1}, {X2,Y2}, {X3,Y3}) of 
                 infinite -> 
-		    Points = gen_dash_straight({{X2,Y2}, {X3,Y3}}, Amount);
+		    Points = gen_dash_straight({{X1,Y1}, {X2,Y2}}, Amount);
                 {CenterPoint, Radius, Clockwise} -> 
-                    Points = gen_dash_circle( {CenterPoint, Radius, Clockwise}, {X3,Y3}, Amount);
+                    Points = gen_dash_circle( {CenterPoint, Radius, Clockwise}, {X2,Y2}, Amount);
                 _Unknown ->
-                    Points = gen_dash_straight({{X2,Y2}, {X3,Y3}}, Amount)       
+                    Points = gen_dash_straight({{X1,Y1}, {X2,Y2}}, Amount)       
             end;
         _ ->
-            Points = gen_dash_straight({{X2,Y2}, {X3,Y3}}, Amount)
+            Points = gen_dash_straight({{X1,Y1}, {X2,Y2}}, Amount)
     end,
     Points.
 
 gen_dash_straight({P2, P3}, Amount) ->
     Angel = getAng(P2, P3),
     gen_dash_straight([], Amount, Angel, P3).
-gen_dash_straight(Points, 0, _Angel, _LastPoint) ->
+gen_dash_straight(Points, -5, _Angel, _LastPoint) ->
     Points;
 gen_dash_straight(Points, Amount, Angel, {XPoint,YPoint}) ->
     Xc = XPoint+200*Amount*math:cos(Angel),
@@ -415,9 +416,9 @@ gen_dash_straight(Points, Amount, Angel, {XPoint,YPoint}) ->
     Ycb = YPoint+200*Amount*math:sin(Angel)-100*math:sin(Angel),
     Xct = XPoint+200*Amount*math:cos(Angel)+100*math:cos(Angel),
     Yct = YPoint+200*Amount*math:sin(Angel)+100*math:sin(Angel),
-    Dash = #dash_line{center_point = {Xc,Yc} , 
-		      box= {{Xbl,Ybl},{Xtl,Ytl},{Xtr,Ytr},{Xbr,Ybr}},
-		      points = [{Xcb,Ycb},{Xc,Yc},{Xct,Yct}]}, 
+    Dash = #dash_line{center_point = {round(Xc),round(Yc)} , 
+		      box= {{round(Xbl),round(Ybl)},{round(Xtl),round(Ytl)},{round(Xtr),round(Ytr)},{round(Xbr),round(Ybr)}},
+		      points = [{round(Xcb),round(Ycb)},{round(Xc),round(Yc)},{round(Xct),round(Yct)}]}, 
     gen_dash_straight([Dash| Points], Amount-1, Angel, {XPoint,YPoint}).
 
  
@@ -425,7 +426,7 @@ gen_dash_circle({{CenterX,CenterY},Radius,ClockWise}, {DashX,DashY}, Amount)->
     Dash2Angel = math:atan2(DashY-CenterY,DashX-CenterX),
     gen_dash_circle([], Amount, Dash2Angel, {CenterX,CenterY},Radius,ClockWise).
 
-gen_dash_circle(Points, 0, _LastPointAngel, {_CenterX,_CenterY},_Radius,_ClockWise)->
+gen_dash_circle(Points, -5, _LastPointAngel, {_CenterX,_CenterY},_Radius,_ClockWise)->
     Points;
 gen_dash_circle(Points, Amount, LastPointAngel, {CenterX,CenterY},Radius,ClockWise)->
     Xc = CenterX+Radius*math:cos(LastPointAngel-Amount*(200*ClockWise/Radius)),
@@ -454,9 +455,9 @@ gen_dash_circle(Points, Amount, LastPointAngel, {CenterX,CenterY},Radius,ClockWi
 	math:cos(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
     Yct = CenterY+(Radius)*
 	math:sin(LastPointAngel-(100*ClockWise/Radius)-Amount*(200*ClockWise/Radius)),
-    Dash = #dash_line{center_point = {Xc,Yc},
-		      box = {{Xbl,Ybl},{Xtl,Ytl},{Xtr,Ytr},{Xbr,Ybr}},
-		      points = [{Xcb,Ycb},{Xc,Yc},{Xct,Yct}]},
+    Dash = #dash_line{center_point = {round(Xc),round(Yc)},
+		      box = {{round(Xbl),round(Ybl)},{round(Xtl),round(Ytl)},{round(Xtr),round(Ytr)},{round(Xbr),round(Ybr)}},
+		      points = [{round(Xcb),round(Ycb)},{round(Xc),round(Yc)},{round(Xct),round(Yct)}]},
     gen_dash_circle([Dash| Points], Amount-1, LastPointAngel, {CenterX,CenterY},Radius,ClockWise).
 
 
@@ -476,6 +477,13 @@ generate_estimated_dashes([P1,P2,P3]) ->
 generate_estimated_dashes(_) ->
     [].
 
+
+generate_temp_map([P1,P2]) ->
+    ok;
+generate_temp_map([P1,P2,P3 | _]) ->
+    add_dashes(P1,P2,P3,5);
+generate_temp_map(_) ->
+    [].
 
 
 get_nodes_ahead(List) ->
@@ -516,8 +524,9 @@ find_mid_dash([First = {X1,Y1}, _, Second = {X2,Y2}] , [Third = {X3,Y3}, _,_]) -
     case  {B1 , B2} of 
 	{false, false} ->
 	    {Center = {Cx,Cy} , Radius , Clockwise} = steering:findcircle(First, Second, Third),
-	    Angle1 = steering:getAng(Center, Second),
-	    Angle2 = steering:getAng(Center, Third),
+	    Angle1 = fix_angle(steering:getAng(Center, Second)),
+	    Angle2 = fix_angle(steering:getAng(Center, Third)),
+	    
 	    Mid_Angle = (Angle1 + Angle2) / 2, 
 	    
 	    X = Radius * math:cos(Mid_Angle) + Cx, 
@@ -526,3 +535,10 @@ find_mid_dash([First = {X1,Y1}, _, Second = {X2,Y2}] , [Third = {X3,Y3}, _,_]) -
 	_ ->
 	    [Second, {(X2+X3) / 2, (Y2+Y3) /2 } , Third]
     end.
+
+
+fix_angle(Angle) when Angle < 0 ->
+    Angle + 2 * math:pi();
+fix_angle(Angle) ->
+    Angle.
+    
