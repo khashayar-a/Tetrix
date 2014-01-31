@@ -302,11 +302,10 @@ int main(int argc, char *argv[])
 		setRightSignalLight(1,(long)ptr);
 		setLeftSignalLight(1,(long)ptr);
 		//setDisplay(str,(long)ptr);
-		printf("Voltage(V): %f; ",getVoltage((long)ptr));
-		printf("\n");
+		printf("Remote Status: %d\n; ",getRemoteStatus((long)ptr));
 		tmp++;
 		setDisplay((char*)"Sta Hello",(long)ptr);
-		//printf("%f\n", getVoltage((long)ptr));
+		printf("Voltage(V): %f\n", getVoltage((long)ptr));
 		//usleep(1000);
 	}
  	setDirection(4,(long)ptr);

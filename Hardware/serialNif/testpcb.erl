@@ -18,11 +18,14 @@ init() ->
     
     P = pcbnif:start_pcb(),
     pcbnif:set_speed(90,P),
+pcbnif:set_beep(0, P),
     timer:sleep(1000),
     remote(P,0),
     ok.
 
  remote(Pcb_Address,Count) ->
+	Voltage=pcbnif:get_Voltage(Pcb_Address),
+     io:format("DRIVING WITH ~p ~n" , [Voltage]),
      case Count of
 	1000 ->
 		pcbnif:set_leftLight(1, Pcb_Address),
