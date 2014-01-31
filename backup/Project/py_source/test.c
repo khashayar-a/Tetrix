@@ -1,0 +1,347 @@
+// Markham Thomas April 1, 2013
+// version 1.0
+// version 1.1    April 9, 2013 - using mmap to setup GPIO
+// version 1.2    October 15, 2013 - support Odroid-XU
+// note: I have not implemented drive strength access yet
+//  the default appears to be 1 which should be the lowest mA setting
+// Python library for odroid-x and x2 boards from hardkernel
+// implements mmap'd GPIO address space for performance
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <signal.h>
+
+#include <poll.h>
+
+
+// switch the defines for the correct board.  At some point I will just pass the board type
+// in from python
+#define ODROIDX2
+//#define ODROIDXU	1	
+
+#define EXYNOS4_PA_GPIO1                0x11400000
+#define EXYNOS_5410                	0x13400000	// base address for GPIO registers
+//#ifdef ODROIDXU
+//#define EXYNOS EXYNOS_5410
+//#else
+#define EXYNOS EXYNOS4_PA_GPIO1
+//#endif
+#define GPIO_GPCONREG		4		// subtract 4 from DATA register base to get CON reg
+#define GPIO_UPDOWN			4		// add 4 to DATA register base to get UPD register
+#define GPIO_DRIVESTR		8		// add 8 to DATA register base to get drive str control reg
+// example:  GPF0CON = 0x0180 low/high nibbles are either 0000=input, 0001=output
+// GPF0DAT = 0x0184  data bits for input or output
+// GPF0UPD = 0x0188  every 2 bits is a GPIO pin 00=up/down disabled, 01=pull down, 10=pull up
+// GPF0DRV = 0x018c  drive str control reg (2-bits each pin) 00=1x, 10=2x, 01=3x, 11=4x
+
+#define PULLDS 0					// disable pullup/down
+#define PULLUP 1					// enable pullup
+#define PULLDN 2					// enable pulldown
+
+#define MAP_SIZE 4096UL
+#define MAP_MASK (MAP_SIZE - 1)
+
+#define GPIO_ADDR          0x11400000 // odroid x2 base GPIO address 
+#define PIN31Channel              0x0184
+#define PIN31Bit       0
+#define PIN29Channel              0x0184
+#define PIN29Bit       2
+#define PIN27Channel              0x0184
+#define PIN27Bit       1
+
+#define INPUT             0
+
+int pins[3] = {0, 0, 0};
+int pinsNew[3] = {0, 0, 0};
+
+void *map_base, *virt_addr;
+int fd;
+
+int read_gpio_pin(int channel, int bit);
+void setup_gpiopin(int channel, int bit, int value, int pullval); 
+
+/*
+// setup the mmap of the GPIO pins,  this should be called before anything else
+static PyObject* py_setup_gpio(PyObject* self, PyObject* args) {
+
+    off_t target = EXYNOS;
+ 
+    if((fd = open("/dev/mem", O_RDWR | O_SYNC)) == -1) {
+        PyErr_SetString(SetupException, "/dev/mem could not be opened");
+		return NULL;
+    } 
+    // Map one page 
+    map_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, target & ~MAP_MASK);
+    if(map_base == (void *) -1) {
+        PyErr_SetString(SetupException, "Memory map failed");
+		return NULL;
+    } 
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+// configure a single GPIO pin: pullup/down and input or output is currently set here
+// it does NOT use the SYSFS interface but directly accesses the GPIO control registers
+static PyObject* py_setup_gpiopin(PyObject* self, PyObject* args) {
+  printf("in py_setup_gpiopin");
+	int channel, bit, value, pullval;
+	div_t div_res;
+	unsigned char val, tmp, hld;
+	unsigned char * base;
+	if (!PyArg_ParseTuple(args, "iiii", &channel, &bit, &pullval, &value)) return NULL;
+
+  //print outs
+
+  printf("channel: %d", channel);
+	base = (map_base + channel) - GPIO_GPCONREG;
+	div_res = div (bit, 2);		// 2 nibbles per byte so divide by 2
+	base += div_res.quot;
+	val  = *(unsigned char *) base;
+	if (value) {				// non-zero means set 0001=output
+		if (div_res.rem) {		// if remainder then its upper nibble
+			val &= 0b00011111;	// upper nibble, not always def to zero
+			val |= 0b00010000;	// set upper nibble as output
+		} else {				// otherwise its lower nibble
+			val &= 0b11110001;	// not always def to zero on boot
+			val |= 0b00000001;	// set lower nibble as output
+		}
+	} else {					// otherwise set 0000=input
+		if (div_res.rem) {		// if remainder then its upper nibble
+			val &= 0b00001111;	// clear upper nibble to be input
+		} else {				// otherwise its lower nibble
+			val &= 0b11110000;	// clear lower nibble to be input
+		}
+	}				
+	*(unsigned char *) base = val;	
+	base = (map_base + channel) + GPIO_UPDOWN;
+	if      (pullval == PULLUP) {
+		tmp = 0b00000010;		// pullup enabled
+	}
+	else if (pullval == PULLDN) {
+		tmp = 0b00000001;		// pulldown enabled
+	} 
+	else {
+		tmp = 0;				// disable pullup/down
+	}
+	if (bit < 4) {
+		hld = tmp << (bit*2);	// shift the 2 bits to their proper location
+	} else {
+		bit = bit - 4;
+		hld = tmp << (bit*2);	// shift the 2 bits to their proper location
+		base++;					// move up to next byte
+	}
+	val = *(unsigned char *) base;
+	//printf("curr value=0x%02x\n", val);
+	val |= hld;
+	//printf("set value=0x%02x\n", val);
+	//printf("base=0x%8x\n",(unsigned int) base);
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+// read a GPIO pin that was previously setup as INPUT
+static PyObject* py_gpio_read(PyObject* self, PyObject* args) {
+	int input, channel, bit;
+	PyObject *value;
+	if (!PyArg_ParseTuple(args, "ii", &channel, &bit)) return NULL;
+	input = *(unsigned char *) (map_base + channel);
+	if (input & (1 << bit)) {
+		value = Py_BuildValue("i", 1);
+	} else {
+		value = Py_BuildValue("i", 0);
+	}
+	return value;
+}
+
+// Note: expect it to take around 800 clocks after setting a output bit for it to show
+// up when you read the bits from that GPIO register again
+static PyObject* py_gpio_write(PyObject* self, PyObject* args) {
+	int output, channel, bit;
+	int tmp, tmp1;
+	unsigned char val;
+	if (!PyArg_ParseTuple(args, "iii", &channel, &bit, &output)) return NULL;
+	virt_addr = map_base + channel;			// offset of the GPIO
+	val = *(unsigned char *) virt_addr;		// get the current bits
+	if (output) {
+		val |=  (1 << bit);					// set the bit
+	} else {
+		val &= ~(1 << bit);					// clear the bit
+	}
+	*(unsigned char *) virt_addr = val;		// write the newly set bit out
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+ 
+// toggle count number of GPIO pin transitions
+static PyObject* py_gpio_toggle(PyObject* self, PyObject* args) {
+	int count, channel, bit;
+	int val, vbl, vcl, sbit, x, y;
+	if (!PyArg_ParseTuple(args, "iii", &channel, &bit, &count)) return NULL;
+	virt_addr = map_base + channel;			// offset of the GPIO
+	val = *(unsigned char *) virt_addr;		// get the current bits
+	sbit = 1 << bit;						// our bit to toggle
+	sbit &= 0xff;
+	vbl = val ^ sbit;						// toggle the bit
+	vcl = vbl ^ sbit;						// toggle the bit
+	for (x=0;x<count;x++) {
+		//val ^= sbit;						// toggle the bit
+		*(unsigned char *) virt_addr = vbl;	// write the newly changed bit out
+		*(unsigned char *) virt_addr = vcl;	// write the newly changed bit out
+		//for (y=0;y<10;y++) {}
+	}
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+// Just a placeholder for testing Python <--> C access
+static PyObject* py_gpio_test(PyObject* self, PyObject* args) {
+	PyObject *value;
+	value = Py_BuildValue("s", "This string is from C");
+	return value;
+}
+
+// The last thing to call when exiting your program, cleans up the mmap
+static PyObject* py_gpio_shutdown(PyObject* self, PyObject* args) {
+	if(munmap(map_base, MAP_SIZE) == -1) {
+        PyErr_SetString(gpioerror, "Memory unmap failed");	
+    }
+    close(fd);
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+*/
+
+int main()
+{
+
+  off_t target = EXYNOS;
+  if((fd = open("/dev/mem", O_RDWR | O_SYNC)) == -1) {
+
+      printf("Error opening /dev/mem, can't setup file descriptors for GPIO\n");
+      return 1;
+  } 
+  else
+  {
+      printf("/dev/mem opened!\n");
+  }
+  map_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, target & ~MAP_MASK);
+  if(map_base == (void *) -1) {
+        
+        printf("Mapping of GPIO space failed!!\n");
+        return 1;
+  }   
+  else
+  {
+      printf("Mapping of GPIO space enabled!\n");
+  }
+
+  setup_gpiopin(PIN31Channel, PIN31Bit, PULLDS, INPUT); 
+  setup_gpiopin(PIN29Channel, PIN29Bit, PULLDS, INPUT); 
+  setup_gpiopin(PIN27Channel, PIN27Bit, PULLDS, INPUT); 
+
+  int values_changed = 0;
+
+  while(1)
+  {
+    
+    pinsNew[0] = read_gpio_pin(PIN27Channel, PIN27Bit);
+    pinsNew[2] = read_gpio_pin(PIN31Channel, PIN31Bit);
+    pinsNew[1] = read_gpio_pin(PIN29Channel, PIN29Bit);
+
+    if(pins[0] != pinsNew[0])
+    {
+      pins[0] = pinsNew[0];
+      values_changed = 1;
+    }
+    if(pins[1] != pinsNew[1])
+    {
+      pins[1] = pinsNew[1];
+      values_changed = 1;
+    }
+    if(pins[2] != pinsNew[2])
+    {
+      pins[2] = pinsNew[2];
+      values_changed = 1;
+    }
+
+    if(values_changed)
+    {
+        //printf("pin31: %d, pin29: %d, pin27: %d\n", pin31, pin29, pin27);
+        printf("( %d, %d, %d )\n", pins[0], pins[1], pins[2]);
+    }
+    
+    values_changed = 0;
+    usleep(100);
+
+  }
+  
+  return 0;
+}
+
+
+int read_gpio_pin(int channel, int bit )
+{ 
+  int input;
+  input = *(unsigned char *) (map_base + channel);
+	if (input & (1 << bit)) {
+    return 1;	
+	} else {
+    return 0;
+	}
+
+}
+
+void setup_gpiopin(int channel, int bit, int value, int pullval) {
+  printf("in py_setup_gpiopin");
+	div_t div_res;
+	unsigned char val, tmp, hld;
+	unsigned char * base;
+
+	base = (map_base + channel) - GPIO_GPCONREG;
+	div_res = div (bit, 2);		// 2 nibbles per byte so divide by 2
+	base += div_res.quot;
+	val  = *(unsigned char *) base;
+	if (value) {				// non-zero means set 0001=output
+		if (div_res.rem) {		// if remainder then its upper nibble
+			val &= 0b00011111;	// upper nibble, not always def to zero
+			val |= 0b00010000;	// set upper nibble as output
+		} else {				// otherwise its lower nibble
+			val &= 0b11110001;	// not always def to zero on boot
+			val |= 0b00000001;	// set lower nibble as output
+		}
+	} else {					// otherwise set 0000=input
+		if (div_res.rem) {		// if remainder then its upper nibble
+			val &= 0b00001111;	// clear upper nibble to be input
+		} else {				// otherwise its lower nibble
+			val &= 0b11110000;	// clear lower nibble to be input
+		}
+	}				
+	*(unsigned char *) base = val;	
+	base = (map_base + channel) + GPIO_UPDOWN;
+	if      (pullval == PULLUP) {
+		tmp = 0b00000010;		// pullup enabled
+	}
+	else if (pullval == PULLDN) {
+		tmp = 0b00000001;		// pulldown enabled
+	} 
+	else {
+		tmp = 0;				// disable pullup/down
+	}
+	if (bit < 4) {
+		hld = tmp << (bit*2);	// shift the 2 bits to their proper location
+	} else {
+		bit = bit - 4;
+		hld = tmp << (bit*2);	// shift the 2 bits to their proper location
+		base++;					// move up to next byte
+	}
+	val = *(unsigned char *) base;
+
+	val |= hld;
+}
+
