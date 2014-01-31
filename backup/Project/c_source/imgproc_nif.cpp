@@ -140,6 +140,7 @@ static ERL_NIF_TERM deinit_camera(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
   // GET IMG FROM CAMERA
   // cout << "Function called" << endl;
+  Point2f intersection_points1, intersection_points2;
   frame_t* frame;
   if (!enif_get_resource(env, argv[0], frame_res, (void**) &frame)) {
     return enif_make_badarg(env);
@@ -169,11 +170,17 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     }
   
   if(image_counter < 10)
-    return enif_make_atom(env, "not_found");
-  // IplImage* src = cvLoadImage("/home/robin/Downloads/pic.png");
-  // IplImage* gray = cvCreateImage(cvGetSize(src), IPL_DEPTH_8U, 1);
-  // cvCvtColor(src, gray, CV_RGB2GRAY);
-
+    return enif_make_tuple3(env,
+			    enif_make_atom(env, "not_found"), 
+			    enif_make_tuple2(env,
+					     enif_make_tuple2(env,enif_make_int(env, 0),
+							     enif_make_int(env, 0)), 
+					     enif_make_tuple2(env,enif_make_int(env, 0),
+							     enif_make_int(env, 0))), 
+			    enif_make_tuple2(env,
+					    enif_make_int(env, 0),
+					    enif_make_int(env, 0)));
+    
   int row = 440, column;
 
   int current_row;
@@ -257,7 +264,18 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
   gray = NULL;
   
   if(lanes.size() < 2)
-    return enif_make_atom(env, "not_found");
+    return enif_make_tuple3(env,
+			    enif_make_atom(env, "not_found"), 
+			    enif_make_tuple2(env,
+					     enif_make_tuple2(env,enif_make_int(env, 0),
+							     enif_make_int(env, 0)), 
+					     enif_make_tuple2(env,enif_make_int(env, 0),
+							     enif_make_int(env, 0))), 
+			    enif_make_tuple2(env,
+					    enif_make_int(env, 0),
+					    enif_make_int(env, 0)));
+
+  find_intersection(lanes, &intersection_points1, &intersection_points2);
 
   unsigned int lanes_size = lanes.size();
   for (unsigned int i = 0; i < lanes.size(); i++) {
@@ -297,12 +315,13 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
   // cout << "connections done" << endl;
   vector<vector<vector<vector<Point2i> > > > grouped;
-
   vector<vector<vector<Point2i> > > temp;
+  Point2f stop_line;
   temp.push_back(lanes[0]);
   grouped.push_back(temp);
   
   for (unsigned int i = 1; i < lanes_size; i++) {
+    stop_line = find_stop_line(lanes[i])
     bool connected = false;
     Point2f lanes_center = Point2f((lanes[i][0][0].x  + lanes[i][0][1].x)/2 , lanes[i][0][0].y);
     for (unsigned int j = 0; j < grouped.size(); j++) {
@@ -347,10 +366,27 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
   }//end of for(unsigned int i... )
 
   //cout << "grouped done" << endl;
-  int dash_index = find_dashed(grouped);
+  int dash_index = find_dashed(grouped, &intersection_points1, &intersection_points2);
   //cout << "find dash done" << endl;
+
+  ERL_NIF_TERM p1, p2, p_intersection, p_stop_line;
+  
+  p_stop_line = enif_make_tuple2(env, 
+				 enif_make_int(env, stop_line.x), 
+				 enif_make_int(env, stop_line.y));
+  
+  p1 = enif_make_tuple2(env, 
+			enif_make_int(env, intersection_points1.x), 
+			enif_make_int(env, intersection_points1.y));
+  
+  p2 = enif_make_tuple2(env, 
+			enif_make_int(env, intersection_points2.x), 
+			enif_make_int(env, intersection_points2.y));
+  
+  p_intersection = enif_make_tuple2(env, p1, p2);
+
   if(dash_index == -1) 
-    return enif_make_atom(env, "not_found");
+    return enif_make_tuple3(env,enif_make_atom(env, "not_found"), p_intersection, p_stop_line);
 
   //cout << "Process ended" << endl;
 
@@ -432,7 +468,7 @@ static ERL_NIF_TERM process_pic(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
       
     }//end of for
   
-  ERL_NIF_TERM points_erl = enif_make_list_from_array(env, final_result, grouped[dash_index].size());
+  ERL_NIF_TERM points_erl = enif_make_tuple3(env, enif_make_list_from_array(env, final_result, grouped[dash_index].size()), p_intersection, p_stop_line);
   // cout << "Ready to return" << endl;
  
   return points_erl;
