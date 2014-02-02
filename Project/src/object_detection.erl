@@ -66,7 +66,7 @@ get_data() ->
     Loc = {0,0},%vehichle_data:car_position(),
     Heading = 0,%vehichle_data:car_heading(),
     List = gen_server:call(?SERVER, {get_data,{Loc, Heading}}),
-    clean_ets(Loc),
+   % clean_ets(Loc),
     store_data(List).
 
 store_data([]) ->

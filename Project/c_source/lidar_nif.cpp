@@ -360,9 +360,11 @@ int deinit()
 
 static ERL_NIF_TERM get_lidar(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-  //x_pos = argv[0];
-  //y_pos = argv[1];
-  //heading = argv[2];
+  x_pos = argv[0];
+  y_pos = argv[1];
+  heading = argv[2];
+
+  cout << "X: " << x_pos << " ,Y: " << y_pos << " ,Heading: " << heading;
   ERL_NIF_TERM lidar_xx [720];
   ERL_NIF_TERM lidar_yy [720];
   ERL_NIF_TERM result[720];
@@ -374,8 +376,8 @@ static ERL_NIF_TERM get_lidar(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     {
       t = point_vector.front();
       
-      //t2g = local_to_global(x_pos, y_pos, heading, t.x, t.y);
-      t2g = local_to_global(0, 0, 0, t.x, t.y);
+      t2g = local_to_global(x_pos, y_pos, heading, t.x, t.y);
+      //t2g = local_to_global(0, 0, 0, t.x, t.y);
       
       // lidar_xx[count] = enif_make_int(env, (int) t2g.x);
       // lidar_yy[count] = enif_make_int(env, (int) t2g.y);
@@ -387,7 +389,7 @@ static ERL_NIF_TERM get_lidar(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
       //mtx.unlock();
       count++;
     }
-  //cout << "After - count: " << count <<  endl;
+  cout << "After - count: " << count <<  endl;
   ERL_NIF_TERM returned_data = enif_make_list_from_array(env, result, count);
   
   return returned_data;  
