@@ -360,6 +360,9 @@ int deinit()
 
 static ERL_NIF_TERM get_lidar(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+  //x_pos = argv[0];
+  //y_pos = argv[1];
+  //heading = argv[2];
   ERL_NIF_TERM lidar_xx [720];
   ERL_NIF_TERM lidar_yy [720];
   ERL_NIF_TERM result[720];
@@ -371,6 +374,7 @@ static ERL_NIF_TERM get_lidar(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     {
       t = point_vector.front();
       
+      //t2g = local_to_global(x_pos, y_pos, heading, t.x, t.y);
       t2g = local_to_global(0, 0, 0, t.x, t.y);
       
       // lidar_xx[count] = enif_make_int(env, (int) t2g.x);
@@ -416,7 +420,7 @@ static ERL_NIF_TERM deinit_lidar(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
 static ErlNifFunc nif_funcs[] =
   {
-    {"get_lidar", 0, get_lidar},
+    {"get_lidar", 3, get_lidar},
     {"deinit_lidar", 0, deinit_lidar}
   };
 

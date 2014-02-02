@@ -12,7 +12,7 @@ init() ->
      erlang:load_nif("./lidar_nif", 0).
 
 read() ->
-    List = get_lidar(),
+    List = get_lidar(0,0,0),
     write(List).
 
 write([]) ->
@@ -23,13 +23,13 @@ write([H|T]) ->
     write(T).
 
 loop() ->
-    {X,Y} = get_lidar(),
+    {X,Y} = get_lidar(0,0,0),
     io:format("X: ~p~n", [X]),
     io:format("Y: ~p~n", [Y]),
     timer:sleep(100),
     loop().
 
-get_lidar() ->
+get_lidar(X,Y,Heading) ->
     ?NIF_STUB.
 
 deinit_lidar() ->

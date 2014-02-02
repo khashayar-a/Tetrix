@@ -30,18 +30,14 @@ init() ->
 
 loop() ->
     timer:sleep(10),
-    List = fetch_data(),
+    object_detection:get_data(),
     %% F = fun(X) -> gen_server:cast(object_detection, {save_data,X}) end,
     %% lists:foreach(F,List),
-	    
     loop().
 
 %%--------------------------------------------------------------------
 % Internal functions Definitions 
 %%--------------------------------------------------------------------
-
-fetch_data() ->    
-    object_detection:get_data().
 
 %% Console print outs for server actions (init, terminate, etc) 
 say(Format, Data) ->
